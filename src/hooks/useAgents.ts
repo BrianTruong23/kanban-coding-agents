@@ -1,99 +1,123 @@
-import { useState, useCallback, useSyncExternalStore } from 'react';
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CodingAgent } from '@/types/agent';
-import { loadAgents, saveAgents } from '@/lib/storage';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { getInitials, getAvatarColor } from '@/lib/utils';
 
-const createDefaultAgents = (): CodingAgent[] => [
-  {
-    id: 'agent-1',
-    name: 'Alex Chen',
-    description: 'Specializes in React, Next.js, and UI development',
-    avatar: getInitials('Alex Chen'),
-    avatarColor: getAvatarColor('Alex Chen'),
-    createdAt: Date.now(),
-  },
-  {
-    id: 'agent-2',
-    name: 'Sarah Johnson',
-    description: 'Handles API, database, and server-side logic',
-    avatar: getInitials('Sarah Johnson'),
-    avatarColor: getAvatarColor('Sarah Johnson'),
-    createdAt: Date.now(),
-  },
-  {
-    id: 'agent-3',
-    name: 'Mike Rodriguez',
-    description: 'Works on both frontend and backend tasks',
-    avatar: getInitials('Mike Rodriguez'),
-    avatarColor: getAvatarColor('Mike Rodriguez'),
-    createdAt: Date.now(),
-  },
-  {
-    id: 'agent-4',
-    name: 'Emma Wilson',
-    description: 'DevOps and infrastructure specialist',
-    avatar: getInitials('Emma Wilson'),
-    avatarColor: getAvatarColor('Emma Wilson'),
-    createdAt: Date.now(),
-  },
-  {
-    id: 'agent-5',
-    name: 'David Kim',
-    description: 'Mobile app development expert',
-    avatar: getInitials('David Kim'),
-    avatarColor: getAvatarColor('David Kim'),
-    createdAt: Date.now(),
-  },
-];
+interface DbAgent {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  avatar: string | null;
+  avatar_color: string | null;
+  created_at: string;
+}
 
-// Simple store for agents with subscription support
-let agentsCache: CodingAgent[] | null = null;
-const listeners = new Set<() => void>();
-
-const getSnapshot = (): CodingAgent[] => {
-  if (agentsCache === null) {
-    const stored = loadAgents();
-    if (stored.length === 0) {
-      agentsCache = createDefaultAgents();
-      saveAgents(agentsCache);
-    } else {
-      agentsCache = stored;
-    }
-  }
-  return agentsCache;
-};
-
-const emptyAgents: CodingAgent[] = [];
-const getServerSnapshot = (): CodingAgent[] => emptyAgents;
-
-const subscribe = (callback: () => void): (() => void) => {
-  listeners.add(callback);
-  return () => listeners.delete(callback);
-};
-
-const updateAgentsStore = (newAgents: CodingAgent[]) => {
-  agentsCache = newAgents;
-  saveAgents(newAgents);
-  listeners.forEach((listener) => listener());
-};
+const mapDbAgentToAgent = (dbAgent: DbAgent): CodingAgent => ({
+  id: dbAgent.id,
+  name: dbAgent.name,
+  description: dbAgent.description || undefined,
+  avatar: dbAgent.avatar || getInitials(dbAgent.name),
+  avatarColor: dbAgent.avatar_color || getAvatarColor(dbAgent.name),
+  createdAt: new Date(dbAgent.created_at).getTime(),
+});
 
 export const useAgents = () => {
-  const agents = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const [isLoaded] = useState(true);
+  const [agents, setAgents] = useState<CodingAgent[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const { user } = useAuth();
+  const supabase = createClient();
+  const hasFetched = useRef(false);
 
-  const addAgent = useCallback((agent: CodingAgent) => {
-    updateAgentsStore([agent, ...getSnapshot()]);
-  }, []);
+  useEffect(() => {
+    if (!user || hasFetched.current) return;
+    hasFetched.current = true;
 
-  const updateAgent = useCallback((updatedAgent: CodingAgent) => {
-    updateAgentsStore(
-      getSnapshot().map((a) => (a.id === updatedAgent.id ? updatedAgent : a))
+    const fetchAgents = async () => {
+      const { data, error } = await supabase
+        .from('agents')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching agents:', error);
+        setIsLoaded(true);
+        return;
+      }
+
+      setAgents((data || []).map(mapDbAgentToAgent));
+      setIsLoaded(true);
+    };
+
+    fetchAgents();
+  }, [user, supabase]);
+
+  const addAgent = useCallback(async (agent: CodingAgent) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('agents')
+      .insert({
+        user_id: user.id,
+        name: agent.name,
+        description: agent.description || null,
+        avatar: agent.avatar || null,
+        avatar_color: agent.avatarColor || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding agent:', error);
+      return;
+    }
+
+    if (data) {
+      setAgents((prev) => [mapDbAgentToAgent(data), ...prev]);
+    }
+  }, [user, supabase]);
+
+  const updateAgent = useCallback(async (updatedAgent: CodingAgent) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('agents')
+      .update({
+        name: updatedAgent.name,
+        description: updatedAgent.description || null,
+        avatar: updatedAgent.avatar || null,
+        avatar_color: updatedAgent.avatarColor || null,
+      })
+      .eq('id', updatedAgent.id);
+
+    if (error) {
+      console.error('Error updating agent:', error);
+      return;
+    }
+
+    setAgents((prev) =>
+      prev.map((a) => (a.id === updatedAgent.id ? updatedAgent : a))
     );
-  }, []);
+  }, [user, supabase]);
 
-  const deleteAgent = useCallback((agentId: string) => {
-    updateAgentsStore(getSnapshot().filter((a) => a.id !== agentId));
-  }, []);
+  const deleteAgent = useCallback(async (agentId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('agents')
+      .delete()
+      .eq('id', agentId);
+
+    if (error) {
+      console.error('Error deleting agent:', error);
+      return;
+    }
+
+    setAgents((prev) => prev.filter((a) => a.id !== agentId));
+  }, [user, supabase]);
 
   return {
     agents,
