@@ -12,6 +12,7 @@ interface DbTask {
   title: string;
   description: string | null;
   status: string;
+  sprint: string | null;
   assigned_agent_id: string | null;
   priority: number;
   tags: string[];
@@ -27,6 +28,7 @@ const mapDbTaskToTask = (dbTask: DbTask): Task => ({
   title: dbTask.title,
   description: dbTask.description || '',
   status: dbTask.status as Task['status'],
+  sprint: dbTask.sprint && dbTask.sprint.trim().length > 0 ? dbTask.sprint : undefined,
   assignedAgentId: dbTask.assigned_agent_id || undefined,
   priority: dbTask.priority as Task['priority'],
   tags: dbTask.tags || [],
@@ -85,6 +87,7 @@ export const useTasks = () => {
         title: task.title,
         description: task.description || null,
         status: task.status,
+        sprint: task.sprint || null,
         assigned_agent_id: task.assignedAgentId || null,
         priority: task.priority,
         tags: task.tags,
@@ -113,6 +116,7 @@ export const useTasks = () => {
         title: updatedTask.title,
         description: updatedTask.description || null,
         status: updatedTask.status,
+        sprint: updatedTask.sprint || null,
         assigned_agent_id: updatedTask.assignedAgentId || null,
         priority: updatedTask.priority,
         tags: updatedTask.tags,
