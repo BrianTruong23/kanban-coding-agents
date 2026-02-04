@@ -225,7 +225,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                   {tasks.length === 0 && col.id === 'backlog' && (
                     <div className="text-center py-8 text-gray-400 text-sm">
                       <p className="mb-1">No tasks yet</p>
-                      <p className="text-xs">Click "Add Task" above to get started</p>
+                      <p className="text-xs">Click &quot;Add Task&quot; above to get started</p>
                     </div>
                   )}
                   {/* Show message if this column is empty but other columns have items */}
