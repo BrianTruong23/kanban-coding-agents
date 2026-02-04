@@ -42,7 +42,8 @@ export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [hasFetched, setHasFetched] = useState(false);
   const { user, isLoading: authLoading } = useAuth();
-  const supabase = createClient();
+  // Memoize the Supabase client to avoid creating a new instance on every render
+  const supabase = useMemo(() => createClient(), []);
   const fetchingRef = useRef(false);
 
   useEffect(() => {
@@ -77,7 +78,9 @@ export const useTasks = () => {
   }, [authLoading, user, hasFetched]);
 
   const addTask = useCallback(async (task: Task) => {
-    if (!user) return;
+    if (!user) {
+      throw new Error('You must be logged in to add tasks');
+    }
 
     const { data, error } = await supabase
       .from('tasks')
@@ -99,11 +102,13 @@ export const useTasks = () => {
 
     if (error) {
       console.error('Error adding task:', error);
-      return;
+      throw new Error(error.message);
     }
 
     if (data) {
       setTasks((prev) => [mapDbTaskToTask(data), ...prev]);
+    } else {
+      throw new Error('Failed to create task: No data returned');
     }
   }, [user, supabase]);
 
