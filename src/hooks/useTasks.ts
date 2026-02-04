@@ -40,7 +40,8 @@ export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [hasFetched, setHasFetched] = useState(false);
   const { user, isLoading: authLoading } = useAuth();
-  const supabase = createClient();
+  // Memoize the Supabase client to avoid creating a new instance on every render
+  const supabase = useMemo(() => createClient(), []);
   const fetchingRef = useRef(false);
 
   useEffect(() => {
