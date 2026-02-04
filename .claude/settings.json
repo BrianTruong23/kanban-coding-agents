@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(**)",
+      "Write(**)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(cat *)",
+      "Bash(gh *)"
+    ]
+  }
+}
