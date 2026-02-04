@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Task } from '@/types/task';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,14 +38,16 @@ const mapDbTaskToTask = (dbTask: DbTask): Task => ({
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const { user } = useAuth();
+  const [hasFetched, setHasFetched] = useState(false);
+  const { user, isLoading: authLoading } = useAuth();
   const supabase = createClient();
-  const hasFetched = useRef(false);
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
-    if (!user || hasFetched.current) return;
-    hasFetched.current = true;
+    // Skip if auth is loading, already fetched, or currently fetching
+    if (authLoading || hasFetched || fetchingRef.current || !user) return;
+
+    fetchingRef.current = true;
 
     const fetchTasks = async () => {
       const { data, error } = await supabase
@@ -55,16 +57,22 @@ export const useTasks = () => {
 
       if (error) {
         console.error('Error fetching tasks:', error);
-        setIsLoaded(true);
-        return;
+      } else {
+        setTasks((data || []).map(mapDbTaskToTask));
       }
-
-      setTasks((data || []).map(mapDbTaskToTask));
-      setIsLoaded(true);
+      setHasFetched(true);
+      fetchingRef.current = false;
     };
 
     fetchTasks();
-  }, [user, supabase]);
+  }, [user, authLoading, hasFetched, supabase]);
+
+  // Derived loading state
+  const isLoaded = useMemo(() => {
+    if (authLoading) return false;
+    if (!user) return true; // No user = loaded with empty state
+    return hasFetched;
+  }, [authLoading, user, hasFetched]);
 
   const addTask = useCallback(async (task: Task) => {
     if (!user) return;

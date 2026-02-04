@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { CodingAgent } from '@/types/agent';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,14 +27,16 @@ const mapDbAgentToAgent = (dbAgent: DbAgent): CodingAgent => ({
 
 export const useAgents = () => {
   const [agents, setAgents] = useState<CodingAgent[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const { user } = useAuth();
+  const [hasFetched, setHasFetched] = useState(false);
+  const { user, isLoading: authLoading } = useAuth();
   const supabase = createClient();
-  const hasFetched = useRef(false);
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
-    if (!user || hasFetched.current) return;
-    hasFetched.current = true;
+    // Skip if auth is loading, already fetched, or currently fetching
+    if (authLoading || hasFetched || fetchingRef.current || !user) return;
+
+    fetchingRef.current = true;
 
     const fetchAgents = async () => {
       const { data, error } = await supabase
@@ -44,16 +46,22 @@ export const useAgents = () => {
 
       if (error) {
         console.error('Error fetching agents:', error);
-        setIsLoaded(true);
-        return;
+      } else {
+        setAgents((data || []).map(mapDbAgentToAgent));
       }
-
-      setAgents((data || []).map(mapDbAgentToAgent));
-      setIsLoaded(true);
+      setHasFetched(true);
+      fetchingRef.current = false;
     };
 
     fetchAgents();
-  }, [user, supabase]);
+  }, [user, authLoading, hasFetched, supabase]);
+
+  // Derived loading state
+  const isLoaded = useMemo(() => {
+    if (authLoading) return false;
+    if (!user) return true; // No user = loaded with empty state
+    return hasFetched;
+  }, [authLoading, user, hasFetched]);
 
   const addAgent = useCallback(async (agent: CodingAgent) => {
     if (!user) return;
