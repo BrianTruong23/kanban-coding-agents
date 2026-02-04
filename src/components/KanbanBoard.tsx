@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Task, TaskStatus } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
 import { generateId, generateTaskId } from '@/lib/utils';
@@ -68,8 +68,9 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
       setNewTaskTags('');
       setNewTaskPriority(3);
       setIsAdding(false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to add task. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add task. Please try again.';
+      setError(message);
       console.error(err);
     }
   };
@@ -93,10 +94,10 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="mb-4 flex justify-between items-center">
-        <h2 className="text-xl font-bold">Coding Agents Kanban</h2>
-        <button 
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Coding Agents Kanban</h2>
+        <button
           onClick={() => setIsAdding(true)}
-          className="bg-black text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800"
+          className="bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
         >
           <Plus size={16} /> New Task
         </button>
@@ -104,22 +105,22 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
 
       {isAdding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setIsAdding(false)}>
-          <div className="bg-white p-6 rounded-xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Add New Task</h3>
-              <button 
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Add New Task</h3>
+              <button
                 onClick={() => setIsAdding(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={(e) => handleAdd(e, 'backlog')} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Task Title *</label>
-                <input 
-                  className="w-full border border-gray-200 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10" 
-                  placeholder="e.g., Implement user authentication" 
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Task Title *</label>
+                <input
+                  className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
+                  placeholder="e.g., Implement user authentication"
                   value={newTaskTitle}
                   onChange={e => setNewTaskTitle(e.target.value)}
                   autoFocus
@@ -127,18 +128,18 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Description (optional)</label>
-                <textarea 
-                  className="w-full border border-gray-200 p-2.5 rounded-lg h-24 focus:outline-none focus:ring-2 focus:ring-black/10 resize-none" 
-                  placeholder="Describe the task in detail..." 
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
+                <textarea
+                  className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2.5 rounded-lg h-24 focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20 resize-none"
+                  placeholder="Describe the task in detail..."
                   value={newTaskDesc}
                   onChange={e => setNewTaskDesc(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Priority (1-5)</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Priority (1-5)</label>
                 <select
-                  className="w-full border border-gray-200 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10"
+                  className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
                   value={newTaskPriority}
                   onChange={e => setNewTaskPriority(Number(e.target.value) as 1 | 2 | 3 | 4 | 5)}
                 >
@@ -150,22 +151,22 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
-                <input 
-                  className="w-full border border-gray-200 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10" 
-                  placeholder="e.g., frontend, urgent, bug" 
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Tags (comma-separated)</label>
+                <input
+                  className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
+                  placeholder="e.g., frontend, urgent, bug"
                   value={newTaskTags}
                   onChange={e => setNewTaskTags(e.target.value)}
                 />
               </div>
               {error && (
-                <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+                <div className="p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
                   {error}
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => {
                     setIsAdding(false);
                     setNewTaskTitle('');
@@ -173,14 +174,14 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                     setNewTaskTags('');
                     setNewTaskPriority(3);
                     setError(null);
-                  }} 
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  }}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
-                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors font-medium"
                 >
                   Add Task
                 </button>
@@ -192,7 +193,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
 
       {/* Error Display */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
           {error}
         </div>
       )}
@@ -203,10 +204,10 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
           {COLUMNS.map((col, colIdx) => {
             const columnTasks = tasks.filter(t => t.status === col.id);
             return (
-              <div key={col.id} className="flex-1 bg-gray-50 rounded-lg flex flex-col max-h-full border border-gray-200">
-                <div className="p-3 font-bold text-sm text-gray-600 uppercase tracking-wider border-b border-gray-200 flex justify-between items-center">
+              <div key={col.id} className="flex-1 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-col max-h-full border border-gray-200 dark:border-gray-700">
+                <div className="p-3 font-bold text-sm text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                   <span>{col.title}</span>
-                  <span className="bg-gray-200 text-gray-700 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                  <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2.5 py-0.5 rounded-full text-xs font-semibold">
                     {columnTasks.length}
                   </span>
                 </div>
@@ -215,7 +216,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                   {col.id === 'backlog' && (
                     <button
                       onClick={() => setIsAdding(true)}
-                      className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2 text-sm font-medium mb-2"
+                      className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-400 dark:text-gray-500 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors flex items-center justify-center gap-2 text-sm font-medium mb-2"
                     >
                       <Plus size={16} />
                       Add Task
@@ -223,40 +224,40 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                   )}
                   {/* Empty state */}
                   {tasks.length === 0 && col.id === 'backlog' && (
-                    <div className="text-center py-8 text-gray-400 text-sm">
+                    <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
                       <p className="mb-1">No tasks yet</p>
                       <p className="text-xs">Click &quot;Add Task&quot; above to get started</p>
                     </div>
                   )}
                   {/* Show message if this column is empty but other columns have items */}
                   {tasks.length > 0 && columnTasks.length === 0 && (
-                    <div className="text-center py-4 text-gray-400 text-xs">
+                    <div className="text-center py-4 text-gray-400 dark:text-gray-500 text-xs">
                       No items in {col.title.toLowerCase()}
                     </div>
                   )}
                   {columnTasks.map(task => (
                     <div key={task.id} className="relative">
-                      <TaskItem 
-                        task={task} 
+                      <TaskItem
+                        task={task}
                         agents={agents}
-                        onUpdate={onUpdateTask} 
-                        onDelete={onDeleteTask} 
+                        onUpdate={onUpdateTask}
+                        onDelete={onDeleteTask}
                       />
                       <div className="mt-2 flex items-center justify-between px-1">
                         {colIdx > 0 ? (
-                          <button 
-                            onClick={() => handleMove(task, 'prev')} 
-                            className="text-gray-400 hover:text-black text-xs flex items-center gap-1"
+                          <button
+                            onClick={() => handleMove(task, 'prev')}
+                            className="text-gray-400 hover:text-black dark:hover:text-white text-xs flex items-center gap-1 transition-colors"
                           >
                             <ArrowLeft size={14} />
                             Prev
                           </button>
                         ) : <div />}
-                        
+
                         {colIdx < COLUMNS.length - 1 ? (
-                          <button 
-                            onClick={() => handleMove(task, 'next')} 
-                            className="text-gray-400 hover:text-black text-xs flex items-center gap-1"
+                          <button
+                            onClick={() => handleMove(task, 'next')}
+                            className="text-gray-400 hover:text-black dark:hover:text-white text-xs flex items-center gap-1 transition-colors"
                           >
                             Next
                             <ArrowRight size={14} />
