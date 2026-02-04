@@ -63,7 +63,8 @@ const getSnapshot = (): CodingAgent[] => {
   return agentsCache;
 };
 
-const getServerSnapshot = (): CodingAgent[] => [];
+const emptyAgents: CodingAgent[] = [];
+const getServerSnapshot = (): CodingAgent[] => emptyAgents;
 
 const subscribe = (callback: () => void): (() => void) => {
   listeners.add(callback);
