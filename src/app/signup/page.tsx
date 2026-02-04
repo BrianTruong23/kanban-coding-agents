@@ -33,7 +33,7 @@ export default function SignupPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -44,7 +44,11 @@ export default function SignupPage() {
     if (error) {
       setError(error.message);
       setIsLoading(false);
+    } else if (data.session) {
+      // User is already signed in (email confirmation disabled)
+      router.push('/');
     } else {
+      // User needs to confirm email
       setSuccess(true);
       setIsLoading(false);
     }

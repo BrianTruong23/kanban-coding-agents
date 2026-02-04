@@ -11,7 +11,7 @@ import { AgentSelector } from './AgentSelector';
 interface KanbanBoardProps {
   tasks: Task[];
   agents: CodingAgent[];
-  onAddTask: (task: Task) => void;
+  onAddTask: (task: Task) => Promise<void>;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
 }
@@ -62,7 +62,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
-      onAddTask(newTask);
+      await onAddTask(newTask);
       setNewTaskTitle('');
       setNewTaskDesc('');
       setNewTaskTags('');
