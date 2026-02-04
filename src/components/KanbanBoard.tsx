@@ -29,7 +29,19 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
   const [newTaskDesc, setNewTaskDesc] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [newTaskTags, setNewTaskTags] = useState('');
+  const [newTaskSprint, setNewTaskSprint] = useState('');
+  const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>('all');
   const [error, setError] = useState<string | null>(null);
+
+  const sprintOptions = Array.from(
+    new Set(tasks.map((task) => task.sprint).filter((sprint): sprint is string => Boolean(sprint)))
+  );
+  const hasUnassignedSprint = tasks.some((task) => !task.sprint);
+  const visibleTasks = tasks.filter((task) => {
+    if (selectedSprint === 'all') return true;
+    if (selectedSprint === 'none') return !task.sprint;
+    return task.sprint === selectedSprint;
+  });
 
   const handleAdd = async (e: React.FormEvent, status: TaskStatus = 'backlog') => {
     e.preventDefault();
@@ -54,6 +66,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
         taskId: generateTaskId(maxTaskNumber + 1),
         title: newTaskTitle,
         description: newTaskDesc,
+        sprint: newTaskSprint.trim() || undefined,
         status: status,
         priority: newTaskPriority,
         tags: tags,
@@ -67,6 +80,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
       setNewTaskDesc('');
       setNewTaskTags('');
       setNewTaskPriority(3);
+      setNewTaskSprint('');
       setIsAdding(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add task. Please try again.';
@@ -95,12 +109,30 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
       {/* Toolbar */}
       <div className="mb-4 flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">Coding Agents Kanban</h2>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
-        >
-          <Plus size={16} /> New Task
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Sprint</span>
+            <select
+              className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
+              value={selectedSprint}
+              onChange={(e) => setSelectedSprint(e.target.value)}
+            >
+              <option value="all">All Sprints</option>
+              {hasUnassignedSprint && <option value="none">No Sprint</option>}
+              {sprintOptions.map((sprint) => (
+                <option key={sprint} value={sprint}>
+                  {sprint}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+          >
+            <Plus size={16} /> New Task
+          </button>
+        </div>
       </div>
 
       {isAdding && (
@@ -159,6 +191,15 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                   onChange={e => setNewTaskTags(e.target.value)}
                 />
               </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sprint (optional)</label>
+                <input
+                  className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
+                  placeholder="e.g., Sprint 12"
+                  value={newTaskSprint}
+                  onChange={e => setNewTaskSprint(e.target.value)}
+                />
+              </div>
               {error && (
                 <div className="p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
                   {error}
@@ -173,6 +214,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                     setNewTaskDesc('');
                     setNewTaskTags('');
                     setNewTaskPriority(3);
+                    setNewTaskSprint('');
                     setError(null);
                   }}
                   className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
@@ -202,7 +244,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
       <div className="flex-1 overflow-x-auto">
         <div className="flex gap-4 h-full min-w-[1200px]">
           {COLUMNS.map((col, colIdx) => {
-            const columnTasks = tasks.filter(t => t.status === col.id);
+            const columnTasks = visibleTasks.filter(t => t.status === col.id);
             return (
               <div key={col.id} className="flex-1 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-col max-h-full border border-gray-200 dark:border-gray-700">
                 <div className="p-3 font-bold text-sm text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -229,8 +271,14 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                       <p className="text-xs">Click &quot;Add Task&quot; above to get started</p>
                     </div>
                   )}
+                  {tasks.length > 0 && visibleTasks.length === 0 && col.id === 'backlog' && (
+                    <div className="text-center py-6 text-gray-400 dark:text-gray-500 text-sm">
+                      <p className="mb-1">No tasks in this sprint</p>
+                      <p className="text-xs">Try selecting another sprint</p>
+                    </div>
+                  )}
                   {/* Show message if this column is empty but other columns have items */}
-                  {tasks.length > 0 && columnTasks.length === 0 && (
+                  {visibleTasks.length > 0 && columnTasks.length === 0 && (
                     <div className="text-center py-4 text-gray-400 dark:text-gray-500 text-xs">
                       No items in {col.title.toLowerCase()}
                     </div>

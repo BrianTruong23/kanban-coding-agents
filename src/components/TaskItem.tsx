@@ -53,7 +53,14 @@ export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
 
       <div className="pr-6">
         {/* Task ID */}
-        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-mono">{task.taskId}</div>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">{task.taskId}</div>
+          {task.sprint && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800">
+              {task.sprint}
+            </span>
+          )}
+        </div>
 
         {/* Title */}
         <h4 className="font-semibold text-sm mb-2 text-gray-900 dark:text-white leading-tight">{task.title}</h4>

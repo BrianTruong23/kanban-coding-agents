@@ -6,6 +6,7 @@ export interface Task {
   title: string;
   description: string;
   status: TaskStatus;
+  sprint?: string;
   assignedAgentId?: string;
   priority: 1 | 2 | 3 | 4 | 5;
   tags: string[];
