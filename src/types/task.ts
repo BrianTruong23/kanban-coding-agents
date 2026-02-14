@@ -8,6 +8,7 @@ export interface Task {
   status: TaskStatus;
   sprint?: string;
   assignedAgentId?: string;
+  budgetId?: string; // Reference to the task budget
   priority: 1 | 2 | 3 | 4 | 5;
   tags: string[];
   commentsCount?: number;
