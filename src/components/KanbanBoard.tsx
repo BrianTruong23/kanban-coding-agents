@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { Task, TaskStatus } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
 import { generateId, generateTaskId } from '@/lib/utils';
-import { Plus, X, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Plus, X, ArrowRight, ArrowLeft, Sparkles, Network } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { AgentSelector } from './AgentSelector';
+import { TaskBreakdownPanel } from './TaskBreakdownPanel';
+import { DependencyGraph } from './DependencyGraph';
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -32,6 +34,8 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
   const [newTaskSprint, setNewTaskSprint] = useState('');
   const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>('all');
   const [error, setError] = useState<string | null>(null);
+  const [showBreakdownPanel, setShowBreakdownPanel] = useState(false);
+  const [showDependencyGraph, setShowDependencyGraph] = useState(false);
 
   const sprintOptions = Array.from(
     new Set(tasks.map((task) => task.sprint).filter((sprint): sprint is string => Boolean(sprint)))
@@ -104,6 +108,17 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
     onUpdateTask({ ...task, assignedAgentId: agentId });
   };
 
+  const handleCreateTasksFromBreakdown = async (newTasks: Task[]) => {
+    try {
+      for (const task of newTasks) {
+        await onAddTask(task);
+      }
+    } catch (err) {
+      console.error('Error creating tasks from breakdown:', err);
+      throw err;
+    }
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
@@ -126,6 +141,20 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
               ))}
             </select>
           </div>
+          <button
+            onClick={() => setShowDependencyGraph(true)}
+            className="border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="View task dependencies"
+          >
+            <Network size={16} /> Dependencies
+          </button>
+          <button
+            onClick={() => setShowBreakdownPanel(true)}
+            className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:from-purple-600 hover:to-blue-600 transition-colors"
+            title="AI-powered task breakdown"
+          >
+            <Sparkles size={16} /> AI Breakdown
+          </button>
           <button
             onClick={() => setIsAdding(true)}
             className="bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
@@ -328,6 +357,54 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
           })}
         </div>
       </div>
+
+      {/* Task Breakdown Panel */}
+      {showBreakdownPanel && (
+        <TaskBreakdownPanel
+          agents={agents}
+          existingTasks={tasks}
+          onCreateTasks={handleCreateTasksFromBreakdown}
+          onClose={() => setShowBreakdownPanel(false)}
+        />
+      )}
+
+      {/* Dependency Graph */}
+      {showDependencyGraph && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                  <Network size={20} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Task Dependencies
+                  </h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Visualize relationships between tasks
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDependencyGraph(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <DependencyGraph
+                tasks={tasks}
+                dependencies={[]}
+                onTaskClick={(taskId) => {
+                  console.log('Task clicked:', taskId);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
