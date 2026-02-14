@@ -2,8 +2,11 @@
 
 import { useTasks } from '@/hooks/useTasks';
 import { useAgents } from '@/hooks/useAgents';
+import { useTests } from '@/hooks/useTests';
 import { useAuth } from '@/contexts/AuthContext';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { TestHarness } from '@/components/TestHarness';
+import { AutoTestRunner } from '@/components/AutoTestRunner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { LogOut } from 'lucide-react';
 
@@ -12,6 +15,7 @@ import { useRouter } from 'next/navigation';
 export default function Home() {
   const { tasks, addTask, updateTask, deleteTask, isLoaded: tasksLoaded } = useTasks();
   const { agents, isLoaded: agentsLoaded } = useAgents();
+  const { tests, metrics, isRunning, isLoaded: testsLoaded, runTest, runAllTests, resetTests } = useTests();
   const { user, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -28,7 +32,7 @@ export default function Home() {
     );
   }
 
-  if (!tasksLoaded || !agentsLoaded) {
+  if (!tasksLoaded || !agentsLoaded || !testsLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-400 dark:text-gray-500">
         Loading kanban board...
@@ -38,6 +42,14 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden transition-colors">
+      {/* Auto Test Runner - runs tests when tasks/agents change */}
+      <AutoTestRunner
+        tasks={tasks}
+        agents={agents}
+        onRunTests={runAllTests}
+        enabled={true}
+      />
+
       {/* Header with user info and controls */}
       <header className="flex-none p-4 flex justify-between items-center z-10">
         <h1 className="text-sm font-semibold text-gray-400 dark:text-gray-500 hidden md:block">
@@ -76,14 +88,25 @@ export default function Home() {
         </div>
       </header>
       
-      <main className="flex-1 overflow-hidden px-4 pb-4 max-w-[1800px] mx-auto w-full">
-        <KanbanBoard
-          tasks={tasks}
+      <main className="flex-1 overflow-hidden px-4 pb-4 max-w-[1800px] mx-auto w-full flex flex-col gap-4">
+        <TestHarness
+          tests={tests}
           agents={agents}
-          onAddTask={addTask}
-          onUpdateTask={updateTask}
-          onDeleteTask={deleteTask}
+          metrics={metrics}
+          isRunning={isRunning}
+          onRunTest={runTest}
+          onRunAllTests={runAllTests}
+          onResetTests={resetTests}
         />
+        <div className="flex-1 overflow-hidden">
+          <KanbanBoard
+            tasks={tasks}
+            agents={agents}
+            onAddTask={addTask}
+            onUpdateTask={updateTask}
+            onDeleteTask={deleteTask}
+          />
+        </div>
       </main>
     </div>
   );
