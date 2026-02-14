@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { LogOut } from 'lucide-react';
 
 import { useRouter } from 'next/navigation';
+import { Sparkles } from 'lucide-react';
 
 export default function Home() {
   const { tasks, addTask, updateTask, deleteTask, isLoaded: tasksLoaded } = useTasks();
@@ -44,6 +45,14 @@ export default function Home() {
           Kanban Board
         </h1>
         <div className="flex items-center gap-3 ml-auto">
+          <button
+            onClick={() => router.push('/breakdown')}
+            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all shadow-sm font-medium text-sm"
+            title="Task Breakdown & Agent Orchestration"
+          >
+            <Sparkles size={16} />
+            AI Breakdown
+          </button>
           {user ? (
             <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <span className="text-sm text-gray-600 dark:text-gray-300 max-w-[150px] truncate">
