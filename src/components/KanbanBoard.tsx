@@ -76,6 +76,17 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
         updatedAt: Date.now(),
       };
       await onAddTask(newTask);
+
+      // Update sprint filter to show the newly created task
+      const taskSprint = newTaskSprint.trim();
+      if (taskSprint) {
+        // If task has a sprint, switch to that sprint view
+        setSelectedSprint(taskSprint);
+      } else if (selectedSprint !== 'all' && selectedSprint !== 'none') {
+        // If task has no sprint and we're viewing a specific sprint, switch to 'all' to show the new task
+        setSelectedSprint('all');
+      }
+
       setNewTaskTitle('');
       setNewTaskDesc('');
       setNewTaskTags('');
