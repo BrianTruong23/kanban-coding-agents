@@ -5,6 +5,7 @@ A Next.js application for managing tasks assigned to coding agents. This kanban 
 ## Features
 
 - **Jira-Style Kanban Board**: Visual board with columns matching Jira: TO DO, IN PROGRESS, IN REVIEW, and DONE
+- **Sprint Management**: Organize tasks by sprint with filtering capabilities
 - **Agent Assignment**: Assign tasks to specific coding agents with colored avatar circles
 - **Task IDs**: Each task gets a unique ID (e.g., TASK-1, TASK-2)
 - **Task Management**: Create, update, move, and delete tasks
@@ -12,7 +13,7 @@ A Next.js application for managing tasks assigned to coding agents. This kanban 
 - **Colored Tags**: Add colored tags to categorize tasks (frontend, backend, bug, feature, etc.)
 - **Agent Avatars**: Color-coded avatar circles with initials for each agent
 - **Comments & Attachments**: Placeholder support for comments and attachments count
-- **Local Storage**: All data is stored locally in your browser
+- **Supabase Backend**: All data is stored securely in Supabase with user authentication
 
 ## Getting Started
 
@@ -53,9 +54,20 @@ pnpm dev
 2. Fill in the task details:
    - **Title** (required): A brief description of the task
    - **Description** (optional): More detailed information
-- **Priority**: Select from 1 (Low) to 5 (Critical) - shown with arrow icons on task cards
-- **Tags**: Comma-separated tags (e.g., "frontend, urgent, bug") - tags are color-coded by type
+   - **Priority**: Select from 1 (Low) to 5 (Critical) - shown with arrow icons on task cards
+   - **Tags**: Comma-separated tags (e.g., "frontend, urgent, bug") - tags are color-coded by type
+   - **Sprint** (optional): Assign the task to a specific sprint (e.g., "Sprint 12")
 3. Click "Add Task" to create the task
+
+### Managing Sprints
+
+1. **Assigning Tasks to Sprints**: When creating or editing a task, you can assign it to a sprint by entering a sprint name
+2. **Filtering by Sprint**: Use the Sprint dropdown in the top toolbar to filter tasks by sprint
+   - **All Sprints**: Shows all tasks regardless of sprint assignment
+   - **No Sprint**: Shows only tasks without a sprint assignment
+   - **Specific Sprint**: Shows only tasks assigned to the selected sprint
+3. **Sprint Badges**: Tasks assigned to a sprint display a colored sprint badge on the task card
+4. **Sprint Persistence**: Your selected sprint filter persists across browser sessions
 
 ### Assigning Agents
 
@@ -113,7 +125,7 @@ kanban-coding-agents/
 - **TypeScript**: Type safety
 - **Tailwind CSS**: Styling
 - **Lucide React**: Icons
-- **LocalStorage**: Data persistence
+- **Supabase**: Database and authentication backend
 
 ## Building for Production
 
