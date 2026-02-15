@@ -61,12 +61,13 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
           }
         }
       });
+      const taskSprint = newTaskSprint.trim() || undefined;
       const newTask: Task = {
         id: generateId(),
         taskId: generateTaskId(maxTaskNumber + 1),
         title: newTaskTitle,
         description: newTaskDesc,
-        sprint: newTaskSprint.trim() || undefined,
+        sprint: taskSprint,
         status: status,
         priority: newTaskPriority,
         tags: tags,
@@ -76,6 +77,18 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
         updatedAt: Date.now(),
       };
       await onAddTask(newTask);
+
+      // Update sprint filter to ensure the newly added task is visible
+      if (taskSprint) {
+        // If task has a sprint, switch to that sprint
+        setSelectedSprint(taskSprint);
+      } else {
+        // If task has no sprint, switch to "no sprint" filter if not already on "all"
+        if (selectedSprint !== 'all') {
+          setSelectedSprint('none');
+        }
+      }
+
       setNewTaskTitle('');
       setNewTaskDesc('');
       setNewTaskTags('');
