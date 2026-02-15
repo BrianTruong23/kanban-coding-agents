@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useAgents } from '@/hooks/useAgents';
 import { useAuth } from '@/contexts/AuthContext';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { PMDashboard } from '@/components/PMDashboard';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { LogOut } from 'lucide-react';
+import { LogOut, LayoutDashboard, Kanban } from 'lucide-react';
 
 import { useRouter } from 'next/navigation';
 
@@ -14,6 +16,7 @@ export default function Home() {
   const { agents, isLoaded: agentsLoaded } = useAgents();
   const { user, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const [view, setView] = useState<'kanban' | 'pm'>('kanban');
 
   const handleSignOut = async () => {
     await signOut();
@@ -41,9 +44,37 @@ export default function Home() {
       {/* Header with user info and controls */}
       <header className="flex-none p-4 flex justify-between items-center z-10">
         <h1 className="text-sm font-semibold text-gray-400 dark:text-gray-500 hidden md:block">
-          Kanban Board
+          {view === 'kanban' ? 'Kanban Board' : 'PM Dashboard'}
         </h1>
         <div className="flex items-center gap-3 ml-auto">
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setView('kanban')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                view === 'kanban'
+                  ? 'bg-black dark:bg-white text-white dark:text-black'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+              title="Kanban View"
+            >
+              <Kanban size={16} />
+              Kanban
+            </button>
+            <button
+              onClick={() => setView('pm')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                view === 'pm'
+                  ? 'bg-black dark:bg-white text-white dark:text-black'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+              title="PM Dashboard"
+            >
+              <LayoutDashboard size={16} />
+              PM
+            </button>
+          </div>
+
           {user ? (
             <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <span className="text-sm text-gray-600 dark:text-gray-300 max-w-[150px] truncate">
@@ -77,13 +108,17 @@ export default function Home() {
       </header>
       
       <main className="flex-1 overflow-hidden px-4 pb-4 max-w-[1800px] mx-auto w-full">
-        <KanbanBoard
-          tasks={tasks}
-          agents={agents}
-          onAddTask={addTask}
-          onUpdateTask={updateTask}
-          onDeleteTask={deleteTask}
-        />
+        {view === 'kanban' ? (
+          <KanbanBoard
+            tasks={tasks}
+            agents={agents}
+            onAddTask={addTask}
+            onUpdateTask={updateTask}
+            onDeleteTask={deleteTask}
+          />
+        ) : (
+          <PMDashboard tasks={tasks} />
+        )}
       </main>
     </div>
   );

@@ -1,8 +1,13 @@
+'use client';
+
+import { useState } from 'react';
 import { Task } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
-import { X, MessageCircle, Paperclip, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { X, MessageCircle, Paperclip, ArrowUp, ArrowDown, Minus, DollarSign } from 'lucide-react';
 import clsx from 'clsx';
 import { getInitials, getAvatarColor } from '@/lib/utils';
+import { BudgetModal } from './BudgetModal';
+import { useBudgets } from '@/hooks/useBudgets';
 
 interface TaskItemProps {
   task: Task;
@@ -13,6 +18,9 @@ interface TaskItemProps {
 
 export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
   const assignedAgent = agents.find(a => a.id === task.assignedAgentId);
+  const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const { getBudgetForTask, createBudget, updateBudget } = useBudgets();
+  const budget = getBudgetForTask(task.id);
 
   const tagColors: { [key: string]: string } = {
     'frontend': 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800',
@@ -39,17 +47,45 @@ export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
     ? (assignedAgent.avatarColor || getAvatarColor(assignedAgent.name))
     : 'bg-gray-400';
 
+  const handleBudgetSave = async (budgetData: Partial<any>) => {
+    try {
+      if (budget) {
+        await updateBudget(budget.id, budgetData);
+      } else {
+        await createBudget(task.id, budgetData);
+      }
+      setShowBudgetModal(false);
+    } catch (error) {
+      console.error('Failed to save budget:', error);
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 group relative hover:shadow-md transition-all cursor-pointer">
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(task.id);
-        }}
-        className="absolute top-2 right-2 text-gray-300 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-      >
-        <X size={14} />
-      </button>
+    <>
+      <div className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 group relative hover:shadow-md transition-all cursor-pointer">
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowBudgetModal(true);
+            }}
+            className={`text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-green-400 transition-colors ${
+              budget ? 'text-green-500 dark:text-green-400' : ''
+            }`}
+            title={budget ? 'Edit budget' : 'Set budget'}
+          >
+            <DollarSign size={14} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(task.id);
+            }}
+            className="text-gray-300 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-opacity"
+          >
+            <X size={14} />
+          </button>
+        </div>
 
       <div className="pr-6">
         {/* Task ID */}
@@ -121,6 +157,16 @@ export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
           )}
         </div>
       </div>
-    </div>
+      </div>
+
+      {showBudgetModal && (
+        <BudgetModal
+          task={task}
+          existingBudget={budget}
+          onSave={handleBudgetSave}
+          onClose={() => setShowBudgetModal(false)}
+        />
+      )}
+    </>
   );
 };
