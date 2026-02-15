@@ -76,16 +76,21 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
         updatedAt: Date.now(),
       };
       await onAddTask(newTask);
+      // Only clear the form and close the dialog after successful task creation
       setNewTaskTitle('');
       setNewTaskDesc('');
       setNewTaskTags('');
       setNewTaskPriority(3);
       setNewTaskSprint('');
+      setError(null);
       setIsAdding(false);
+      // Reset sprint filter to 'all' to ensure the newly added task is visible
+      setSelectedSprint('all');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add task. Please try again.';
       setError(message);
       console.error(err);
+      // Keep the dialog open so the user can see the error and retry
     }
   };
 
