@@ -71,6 +71,7 @@ create table if not exists tasks (
   title text not null,
   description text,
   status text not null default 'backlog',
+  sprint text, -- Sprint category for organizing tasks
   priority integer not null check (priority >= 1 and priority <= 5) default 3,
   tags text[] default '{}',
   comments_count integer default 0,
@@ -112,6 +113,11 @@ begin
   -- tags
   if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'tags') then
     alter table tasks add column tags text[] default '{}';
+  end if;
+
+  -- sprint
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'sprint') then
+    alter table tasks add column sprint text;
   end if;
 end $$;
 

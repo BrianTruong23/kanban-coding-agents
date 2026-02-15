@@ -1,3 +1,5 @@
+import { TaskBudget } from './budget';
+
 export type TaskStatus = 'backlog' | 'in-progress' | 'review' | 'done';
 
 export interface Task {
@@ -12,6 +14,7 @@ export interface Task {
   tags: string[];
   commentsCount?: number;
   attachmentsCount?: number;
+  budget?: TaskBudget;
   createdAt: number;
   updatedAt: number;
 }
