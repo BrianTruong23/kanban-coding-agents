@@ -4,9 +4,20 @@ import { useState } from 'react';
 import { Task, TaskStatus } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
 import { generateId, generateTaskId } from '@/lib/utils';
-import { Plus, X, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Plus, X, ArrowRight, ArrowLeft, Sparkles, Users, Network } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { AgentSelector } from './AgentSelector';
+import { TaskBreakdownPanel } from './TaskBreakdownPanel';
+import { AgentRosterPanel } from './AgentRosterPanel';
+import { DependencyGraph } from './DependencyGraph';
+import { BreakdownResult, TaskDependency } from '@/types/taskBreakdown';
+import {
+  AgentSkill,
+  AgentPerformanceMetrics,
+  AgentAvailability,
+  AgentRoster
+} from '@/types/agentOrchestration';
+import { AgentOrchestrationService } from '@/lib/agentOrchestrationService';
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -33,6 +44,17 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
   const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>('all');
   const [error, setError] = useState<string | null>(null);
 
+  // New state for orchestration features
+  const [showBreakdownPanel, setShowBreakdownPanel] = useState(false);
+  const [showRosterPanel, setShowRosterPanel] = useState(false);
+  const [showDependencyGraph, setShowDependencyGraph] = useState(false);
+  const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
+
+  // Mock agent skills and performance (in production, this would come from a database)
+  const [agentSkills] = useState<Map<string, AgentSkill[]>>(new Map());
+  const [agentPerformance] = useState<Map<string, AgentPerformanceMetrics>>(new Map());
+  const [agentAvailability] = useState<Map<string, AgentAvailability>>(new Map());
+
   const sprintOptions = Array.from(
     new Set(tasks.map((task) => task.sprint).filter((sprint): sprint is string => Boolean(sprint)))
   );
@@ -42,6 +64,15 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
     if (selectedSprint === 'none') return !task.sprint;
     return task.sprint === selectedSprint;
   });
+
+  // Build agent roster
+  const agentRoster: AgentRoster[] = AgentOrchestrationService.buildAgentRoster(
+    agents,
+    agentSkills,
+    agentPerformance,
+    agentAvailability,
+    tasks
+  );
 
   const handleAdd = async (e: React.FormEvent, status: TaskStatus = 'backlog') => {
     e.preventDefault();
@@ -104,6 +135,73 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
     onUpdateTask({ ...task, assignedAgentId: agentId });
   };
 
+  const handleBreakdownComplete = async (result: BreakdownResult) => {
+    try {
+      // Store dependencies
+      setDependencies(prev => [...prev, ...result.dependencies]);
+
+      // Create tasks from breakdown
+      const tasksToCreate: Task[] = [];
+      const allBreakdowns = [
+        ...(result.hierarchy.epic ? [result.hierarchy.epic] : []),
+        ...result.hierarchy.tickets,
+        ...result.hierarchy.subtasks
+      ];
+
+      let maxTaskNumber = 0;
+      tasks.forEach(task => {
+        if (task.taskId) {
+          const match = task.taskId.match(/TASK-(\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxTaskNumber) maxTaskNumber = num;
+          }
+        }
+      });
+
+      for (const breakdown of allBreakdowns) {
+        maxTaskNumber++;
+        const newTask: Task = {
+          id: generateId(),
+          taskId: generateTaskId(maxTaskNumber),
+          title: breakdown.acceptanceCriteria[0] || `${breakdown.type} task`,
+          description: breakdown.technicalNotes || '',
+          status: 'backlog',
+          priority: 3,
+          tags: [breakdown.type],
+          commentsCount: 0,
+          attachmentsCount: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        tasksToCreate.push(newTask);
+      }
+
+      // Add all tasks
+      for (const task of tasksToCreate) {
+        await onAddTask(task);
+      }
+
+      setShowBreakdownPanel(false);
+    } catch (err) {
+      console.error('Error creating tasks from breakdown:', err);
+      setError('Failed to create tasks from breakdown');
+    }
+  };
+
+  const handleUpdateSkills = (agentId: string, skills: AgentSkill[]) => {
+    agentSkills.set(agentId, skills);
+  };
+
+  const handleUpdatePerformance = (agentId: string, metrics: AgentPerformanceMetrics) => {
+    agentPerformance.set(agentId, metrics);
+  };
+
+  const handleUpdateAvailability = (agentId: string, availability: AgentAvailability) => {
+    agentAvailability.set(agentId, availability);
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
@@ -126,6 +224,29 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
               ))}
             </select>
           </div>
+
+          {/* New Orchestration Buttons */}
+          <button
+            onClick={() => setShowDependencyGraph(true)}
+            className="bg-purple-500 dark:bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-purple-600 dark:hover:bg-purple-700 transition-colors"
+            title="View Task Dependencies"
+          >
+            <Network size={16} /> Dependencies
+          </button>
+          <button
+            onClick={() => setShowRosterPanel(true)}
+            className="bg-blue-500 dark:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+            title="Manage Agent Roster"
+          >
+            <Users size={16} /> Agents
+          </button>
+          <button
+            onClick={() => setShowBreakdownPanel(true)}
+            className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:from-purple-600 hover:to-blue-600 transition-all"
+            title="Auto-breakdown Task"
+          >
+            <Sparkles size={16} /> Auto Breakdown
+          </button>
           <button
             onClick={() => setIsAdding(true)}
             className="bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
@@ -231,6 +352,60 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
             </form>
           </div>
         </div>
+      )}
+
+      {/* Task Breakdown Panel */}
+      {showBreakdownPanel && (
+        <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/50 backdrop-blur-sm">
+          <div className="w-full md:w-2/3 lg:w-1/2 h-full bg-white dark:bg-gray-800 shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Automated Task Breakdown</h2>
+              <button
+                onClick={() => setShowBreakdownPanel(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X size={20} className="text-gray-600 dark:text-gray-400" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <TaskBreakdownPanel onBreakdownComplete={handleBreakdownComplete} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Agent Roster Panel */}
+      {showRosterPanel && (
+        <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/50 backdrop-blur-sm">
+          <div className="w-full md:w-2/3 lg:w-1/2 h-full bg-white dark:bg-gray-800 shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Agent Roster Management</h2>
+              <button
+                onClick={() => setShowRosterPanel(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X size={20} className="text-gray-600 dark:text-gray-400" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <AgentRosterPanel
+                roster={agentRoster}
+                onUpdateSkills={handleUpdateSkills}
+                onUpdatePerformance={handleUpdatePerformance}
+                onUpdateAvailability={handleUpdateAvailability}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dependency Graph */}
+      {showDependencyGraph && (
+        <DependencyGraph
+          tasks={tasks}
+          dependencies={dependencies}
+          onClose={() => setShowDependencyGraph(false)}
+        />
       )}
 
       {/* Error Display */}
