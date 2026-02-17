@@ -71,6 +71,8 @@ create table if not exists tasks (
   title text not null,
   description text,
   status text not null default 'backlog',
+  sprint text,
+  assigned_agent_id uuid references agents(id) on delete set null,
   priority integer not null check (priority >= 1 and priority <= 5) default 3,
   tags text[] default '{}',
   comments_count integer default 0,
@@ -92,6 +94,11 @@ begin
   -- assigned_agent_id
   if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'assigned_agent_id') then
     alter table tasks add column assigned_agent_id uuid references agents(id) on delete set null;
+  end if;
+
+  -- sprint
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'sprint') then
+    alter table tasks add column sprint text;
   end if;
 
   -- priority
