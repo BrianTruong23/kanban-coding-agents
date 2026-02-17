@@ -5,7 +5,7 @@ import { useAgents } from '@/hooks/useAgents';
 import { useAuth } from '@/contexts/AuthContext';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { LogOut } from 'lucide-react';
+import { LogOut, Sparkles } from 'lucide-react';
 
 import { useRouter } from 'next/navigation';
 
@@ -44,6 +44,16 @@ export default function Home() {
           Kanban Board
         </h1>
         <div className="flex items-center gap-3 ml-auto">
+          {user && (
+            <button
+              onClick={() => router.push('/orchestration')}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+              title="Open Agent Orchestration Dashboard"
+            >
+              <Sparkles size={16} />
+              <span className="hidden sm:inline">Orchestration</span>
+            </button>
+          )}
           {user ? (
             <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <span className="text-sm text-gray-600 dark:text-gray-300 max-w-[150px] truncate">
