@@ -113,6 +113,11 @@ begin
   if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'tags') then
     alter table tasks add column tags text[] default '{}';
   end if;
+
+  -- sprint
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'sprint') then
+    alter table tasks add column sprint text;
+  end if;
 end $$;
 
 -- Fix Status Constraint (Idempotent)
