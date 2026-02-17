@@ -76,6 +76,8 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
         updatedAt: Date.now(),
       };
       await onAddTask(newTask);
+      // Reset sprint filter to 'all' so the newly added task is visible
+      setSelectedSprint('all');
       setNewTaskTitle('');
       setNewTaskDesc('');
       setNewTaskTags('');
