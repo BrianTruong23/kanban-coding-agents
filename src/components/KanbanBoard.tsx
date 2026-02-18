@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Task, TaskStatus } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
 import { generateId, generateTaskId } from '@/lib/utils';
@@ -32,6 +32,19 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
   const [newTaskSprint, setNewTaskSprint] = useState('');
   const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>('all');
   const [error, setError] = useState<string | null>(null);
+
+  // Load saved sprint filter from localStorage
+  useEffect(() => {
+    const savedSprint = localStorage.getItem('selectedSprint');
+    if (savedSprint) {
+      setSelectedSprint(savedSprint);
+    }
+  }, []);
+
+  // Save sprint filter to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('selectedSprint', selectedSprint);
+  }, [selectedSprint]);
 
   const sprintOptions = Array.from(
     new Set(tasks.map((task) => task.sprint).filter((sprint): sprint is string => Boolean(sprint)))
