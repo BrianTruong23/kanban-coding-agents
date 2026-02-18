@@ -5,6 +5,7 @@ A Next.js application for managing tasks assigned to coding agents. This kanban 
 ## Features
 
 - **Jira-Style Kanban Board**: Visual board with columns matching Jira: TO DO, IN PROGRESS, IN REVIEW, and DONE
+- **Sprint Management**: Organize tasks by sprint with sprint badges and filtering
 - **Agent Assignment**: Assign tasks to specific coding agents with colored avatar circles
 - **Task IDs**: Each task gets a unique ID (e.g., TASK-1, TASK-2)
 - **Task Management**: Create, update, move, and delete tasks
@@ -12,7 +13,7 @@ A Next.js application for managing tasks assigned to coding agents. This kanban 
 - **Colored Tags**: Add colored tags to categorize tasks (frontend, backend, bug, feature, etc.)
 - **Agent Avatars**: Color-coded avatar circles with initials for each agent
 - **Comments & Attachments**: Placeholder support for comments and attachments count
-- **Local Storage**: All data is stored locally in your browser
+- **Supabase Integration**: All data is stored in Supabase with user authentication
 
 ## Getting Started
 
@@ -53,9 +54,19 @@ pnpm dev
 2. Fill in the task details:
    - **Title** (required): A brief description of the task
    - **Description** (optional): More detailed information
-- **Priority**: Select from 1 (Low) to 5 (Critical) - shown with arrow icons on task cards
-- **Tags**: Comma-separated tags (e.g., "frontend, urgent, bug") - tags are color-coded by type
+   - **Priority**: Select from 1 (Low) to 5 (Critical) - shown with arrow icons on task cards
+   - **Tags**: Comma-separated tags (e.g., "frontend, urgent, bug") - tags are color-coded by type
+   - **Sprint** (optional): Assign the task to a sprint (e.g., "Sprint 12")
 3. Click "Add Task" to create the task
+
+### Managing Sprints
+
+1. **Assign tasks to sprints**: When creating or editing a task, enter a sprint name in the Sprint field
+2. **Filter by sprint**: Use the Sprint dropdown in the top toolbar to filter tasks by sprint
+   - Select "All Sprints" to see all tasks
+   - Select a specific sprint to see only tasks in that sprint
+   - Select "No Sprint" to see tasks without a sprint assignment
+3. **Sprint badges**: Tasks with sprint assignments show an amber badge with the sprint name next to the task ID
 
 ### Assigning Agents
 
