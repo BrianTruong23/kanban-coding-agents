@@ -8,11 +8,12 @@ A Next.js application for managing tasks assigned to coding agents. This kanban 
 - **Agent Assignment**: Assign tasks to specific coding agents with colored avatar circles
 - **Task IDs**: Each task gets a unique ID (e.g., TASK-1, TASK-2)
 - **Task Management**: Create, update, move, and delete tasks
+- **Sprint Management**: Organize tasks by sprint with filtering capabilities
 - **Priority Indicators**: Visual priority indicators (arrows) for high, medium, and low priority
 - **Colored Tags**: Add colored tags to categorize tasks (frontend, backend, bug, feature, etc.)
 - **Agent Avatars**: Color-coded avatar circles with initials for each agent
 - **Comments & Attachments**: Placeholder support for comments and attachments count
-- **Local Storage**: All data is stored locally in your browser
+- **Supabase Backend**: Persistent storage with authentication
 
 ## Getting Started
 
@@ -53,8 +54,9 @@ pnpm dev
 2. Fill in the task details:
    - **Title** (required): A brief description of the task
    - **Description** (optional): More detailed information
-- **Priority**: Select from 1 (Low) to 5 (Critical) - shown with arrow icons on task cards
-- **Tags**: Comma-separated tags (e.g., "frontend, urgent, bug") - tags are color-coded by type
+   - **Priority**: Select from 1 (Low) to 5 (Critical) - shown with arrow icons on task cards
+   - **Tags**: Comma-separated tags (e.g., "frontend, urgent, bug") - tags are color-coded by type
+   - **Sprint** (optional): Assign the task to a sprint (e.g., "Sprint 12")
 3. Click "Add Task" to create the task
 
 ### Assigning Agents
@@ -68,6 +70,14 @@ pnpm dev
 
 - Use the "Next" and "Prev" buttons on each task card to move tasks between columns
 - Tasks flow through: TO DO → IN PROGRESS → IN REVIEW → DONE
+
+### Filtering by Sprint
+
+1. Use the sprint dropdown filter in the top right corner of the board
+2. Select a specific sprint to view only tasks in that sprint
+3. Select "All Sprints" to view all tasks
+4. Select "No Sprint" to view tasks without an assigned sprint
+5. Sprint badges appear on task cards showing which sprint they belong to
 
 ### Default Agents
 
