@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Task, TaskStatus } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
 import { generateId, generateTaskId } from '@/lib/utils';
-import { Plus, X, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Plus, X, ArrowRight, ArrowLeft, BarChart3 } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { AgentSelector } from './AgentSelector';
 
@@ -32,16 +32,114 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
   const [newTaskSprint, setNewTaskSprint] = useState('');
   const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>('all');
   const [error, setError] = useState<string | null>(null);
+  const [showStats, setShowStats] = useState(false);
+
+  // Load sprint filter from localStorage on mount
+  useEffect(() => {
+    const savedSprint = localStorage.getItem('selectedSprint');
+    if (savedSprint) {
+      setSelectedSprint(savedSprint);
+    }
+  }, []);
+
+  // Save sprint filter to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('selectedSprint', selectedSprint);
+  }, [selectedSprint]);
 
   const sprintOptions = Array.from(
     new Set(tasks.map((task) => task.sprint).filter((sprint): sprint is string => Boolean(sprint)))
-  );
+  ).sort((a, b) => {
+    // Sort sprints with numbers naturally (Sprint 1, Sprint 2, etc.)
+    const aNum = parseInt(a.match(/\d+/)?.[0] || '0');
+    const bNum = parseInt(b.match(/\d+/)?.[0] || '0');
+    if (aNum !== bNum) return bNum - aNum; // Descending order
+    return b.localeCompare(a);
+  });
+
   const hasUnassignedSprint = tasks.some((task) => !task.sprint);
   const visibleTasks = tasks.filter((task) => {
     if (selectedSprint === 'all') return true;
     if (selectedSprint === 'none') return !task.sprint;
     return task.sprint === selectedSprint;
   });
+
+  // Generate sprint suggestions based on existing sprints
+  const generateSprintSuggestions = (): string[] => {
+    const suggestions: string[] = [];
+
+    // Find the highest sprint number
+    let maxSprintNumber = 0;
+    sprintOptions.forEach(sprint => {
+      const match = sprint.match(/Sprint\s+(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxSprintNumber) maxSprintNumber = num;
+      }
+    });
+
+    // Suggest next 3 sprint numbers
+    for (let i = 1; i <= 3; i++) {
+      suggestions.push(`Sprint ${maxSprintNumber + i}`);
+    }
+
+    // Add existing sprints
+    suggestions.push(...sprintOptions);
+
+    // Add common sprint naming patterns
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
+    const currentQuarter = Math.ceil((currentDate.getMonth() + 1) / 3);
+
+    suggestions.push(
+      `${currentMonth} ${currentYear}`,
+      `Q${currentQuarter} ${currentYear}`,
+      `Week ${Math.ceil(currentDate.getDate() / 7)} - ${currentMonth}`
+    );
+
+    return Array.from(new Set(suggestions));
+  };
+
+  const sprintSuggestions = generateSprintSuggestions();
+
+  // Calculate sprint statistics
+  const calculateSprintStats = () => {
+    const stats = new Map<string, { total: number; done: number; inProgress: number; review: number; backlog: number }>();
+
+    tasks.forEach(task => {
+      const sprintKey = task.sprint || 'No Sprint';
+      if (!stats.has(sprintKey)) {
+        stats.set(sprintKey, { total: 0, done: 0, inProgress: 0, review: 0, backlog: 0 });
+      }
+
+      const stat = stats.get(sprintKey)!;
+      stat.total++;
+
+      if (task.status === 'done') stat.done++;
+      else if (task.status === 'in-progress') stat.inProgress++;
+      else if (task.status === 'review') stat.review++;
+      else if (task.status === 'backlog') stat.backlog++;
+    });
+
+    return Array.from(stats.entries())
+      .map(([sprint, data]) => ({
+        sprint,
+        ...data,
+        completionRate: data.total > 0 ? Math.round((data.done / data.total) * 100) : 0,
+      }))
+      .sort((a, b) => {
+        // Sort by sprint name (with numeric sorting for "Sprint N")
+        if (a.sprint === 'No Sprint') return 1;
+        if (b.sprint === 'No Sprint') return -1;
+        const aNum = parseInt(a.sprint.match(/\d+/)?.[0] || '0');
+        const bNum = parseInt(b.sprint.match(/\d+/)?.[0] || '0');
+        if (aNum !== bNum) return bNum - aNum;
+        return b.sprint.localeCompare(a.sprint);
+      });
+  };
+
+  const sprintStats = calculateSprintStats();
 
   const handleAdd = async (e: React.FormEvent, status: TaskStatus = 'backlog') => {
     e.preventDefault();
@@ -127,6 +225,13 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
             </select>
           </div>
           <button
+            onClick={() => setShowStats(true)}
+            className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            title="View Sprint Statistics"
+          >
+            <BarChart3 size={16} /> Stats
+          </button>
+          <button
             onClick={() => setIsAdding(true)}
             className="bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
           >
@@ -134,6 +239,78 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
           </button>
         </div>
       </div>
+
+      {/* Sprint Statistics Modal */}
+      {showStats && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowStats(false)}>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-3xl shadow-xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Sprint Statistics</h3>
+              <button
+                onClick={() => setShowStats(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              {sprintStats.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+                  <p>No tasks yet. Create some tasks to see sprint statistics.</p>
+                </div>
+              ) : (
+                sprintStats.map((stat) => (
+                  <div key={stat.sprint} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{stat.sprint}</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {stat.done}/{stat.total} completed
+                        </span>
+                        <span className={`text-sm font-bold px-2 py-1 rounded ${
+                          stat.completionRate >= 80 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
+                          stat.completionRate >= 50 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' :
+                          'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                        }`}>
+                          {stat.completionRate}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="mb-3 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-green-500 h-full transition-all duration-300"
+                        style={{ width: `${stat.completionRate}%` }}
+                      />
+                    </div>
+
+                    {/* Task Breakdown */}
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded text-center">
+                        <div className="font-semibold text-gray-700 dark:text-gray-300">{stat.backlog}</div>
+                        <div className="text-gray-500 dark:text-gray-400">Backlog</div>
+                      </div>
+                      <div className="bg-blue-100 dark:bg-blue-900/40 p-2 rounded text-center">
+                        <div className="font-semibold text-blue-700 dark:text-blue-300">{stat.inProgress}</div>
+                        <div className="text-blue-600 dark:text-blue-400">In Progress</div>
+                      </div>
+                      <div className="bg-purple-100 dark:bg-purple-900/40 p-2 rounded text-center">
+                        <div className="font-semibold text-purple-700 dark:text-purple-300">{stat.review}</div>
+                        <div className="text-purple-600 dark:text-purple-400">Review</div>
+                      </div>
+                      <div className="bg-green-100 dark:bg-green-900/40 p-2 rounded text-center">
+                        <div className="font-semibold text-green-700 dark:text-green-300">{stat.done}</div>
+                        <div className="text-green-600 dark:text-green-400">Done</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isAdding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setIsAdding(false)}>
@@ -198,7 +375,13 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                   placeholder="e.g., Sprint 12"
                   value={newTaskSprint}
                   onChange={e => setNewTaskSprint(e.target.value)}
+                  list="sprint-suggestions"
                 />
+                <datalist id="sprint-suggestions">
+                  {sprintSuggestions.map((suggestion, idx) => (
+                    <option key={idx} value={suggestion} />
+                  ))}
+                </datalist>
               </div>
               {error && (
                 <div className="p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
