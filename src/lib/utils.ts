@@ -6,6 +6,10 @@ export const generateTaskId = (taskNumber: number): string => {
   return `TASK-${taskNumber}`;
 };
 
+export const generateEpicId = (epicNumber: number): string => {
+  return `EPIC-${epicNumber}`;
+};
+
 export const getInitials = (name: string): string => {
   return name
     .split(' ')

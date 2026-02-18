@@ -4,6 +4,7 @@ A Next.js application for managing tasks assigned to coding agents. This kanban 
 
 ## Features
 
+### Core Kanban Features
 - **Jira-Style Kanban Board**: Visual board with columns matching Jira: TO DO, IN PROGRESS, IN REVIEW, and DONE
 - **Agent Assignment**: Assign tasks to specific coding agents with colored avatar circles
 - **Task IDs**: Each task gets a unique ID (e.g., TASK-1, TASK-2)
@@ -11,8 +12,43 @@ A Next.js application for managing tasks assigned to coding agents. This kanban 
 - **Priority Indicators**: Visual priority indicators (arrows) for high, medium, and low priority
 - **Colored Tags**: Add colored tags to categorize tasks (frontend, backend, bug, feature, etc.)
 - **Agent Avatars**: Color-coded avatar circles with initials for each agent
-- **Comments & Attachments**: Placeholder support for comments and attachments count
-- **Local Storage**: All data is stored locally in your browser
+- **Sprint Filtering**: Filter tasks by sprint or view all tasks
+- **Supabase Integration**: All data is stored securely in Supabase with Row Level Security
+
+### 🤖 AI-Powered Task Orchestration (NEW!)
+- **Automated Task Breakdown**: Paste a GitHub issue, PRD, or screenshot description and AI automatically breaks it down into:
+  - Epics for high-level feature groupings
+  - Tasks categorized by type (backend, frontend, testing, documentation)
+  - Subtasks for granular work items
+  - Definition of Done (DoD) checklists
+  - Test notes and testing strategies
+  - Risk assessment and flags
+  - Time estimates
+  - Task dependencies
+
+- **Intelligent Agent Assignment**:
+  - Skills-based matching (50% weight)
+  - Availability scoring based on workload (30% weight)
+  - Performance history tracking (20% weight)
+  - Auto-assignment with confidence scoring
+  - Skill gap detection in your team
+
+- **Agent Roster Management**:
+  - Track agent skills and proficiency levels (1-5)
+  - Monitor performance metrics (quality score, completion time)
+  - View workload distribution (active/completed tasks)
+  - Identify skill gaps and hiring needs
+  - Add/remove/update agent skills
+
+- **Dependency Visualization**:
+  - Interactive graph showing task relationships
+  - Visual blocking/dependency arrows
+  - Color-coded status indicators
+  - Priority highlighting
+  - Risk flag display
+  - Click to view task details
+
+See [TASK_ORCHESTRATION.md](./TASK_ORCHESTRATION.md) for detailed documentation on the orchestration features.
 
 ## Getting Started
 

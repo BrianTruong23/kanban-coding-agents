@@ -199,3 +199,287 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row
   execute function create_default_agents();
+
+-- =====================
+-- EPICS TABLE
+-- =====================
+create table if not exists epics (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  epic_id text not null, -- Display ID like "EPIC-1"
+  title text not null,
+  description text,
+  status text not null default 'planning',
+  priority integer not null check (priority >= 1 and priority <= 5) default 3,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable Row Level Security (RLS)
+alter table epics enable row level security;
+
+-- Grants for epics table
+grant all on table epics to postgres, service_role;
+
+-- RLS Policies for epics
+drop policy if exists "Users can view their own epics" on epics;
+create policy "Users can view their own epics" on epics
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own epics" on epics;
+create policy "Users can insert their own epics" on epics
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own epics" on epics;
+create policy "Users can update their own epics" on epics
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own epics" on epics;
+create policy "Users can delete their own epics" on epics
+  for delete using (auth.uid() = user_id);
+
+-- Index for faster queries
+create index if not exists epics_user_id_idx on epics(user_id);
+
+-- Trigger for epics
+drop trigger if exists update_epics_updated_at on epics;
+create trigger update_epics_updated_at
+  before update on epics
+  for each row
+  execute function update_updated_at_column();
+
+-- =====================
+-- MIGRATION: Add epic_id to tasks
+-- =====================
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'epic_id') then
+    alter table tasks add column epic_id uuid references epics(id) on delete set null;
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'parent_task_id') then
+    alter table tasks add column parent_task_id uuid references tasks(id) on delete cascade;
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'definition_of_done') then
+    alter table tasks add column definition_of_done text[] default '{}';
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'test_notes') then
+    alter table tasks add column test_notes text;
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'risk_level') then
+    alter table tasks add column risk_level text default 'low';
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'risk_flags') then
+    alter table tasks add column risk_flags text[] default '{}';
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'estimated_hours') then
+    alter table tasks add column estimated_hours integer;
+  end if;
+end $$;
+
+-- Add index for epic_id and parent_task_id
+create index if not exists tasks_epic_id_idx on tasks(epic_id);
+create index if not exists tasks_parent_task_id_idx on tasks(parent_task_id);
+
+-- =====================
+-- TASK DEPENDENCIES TABLE
+-- =====================
+create table if not exists task_dependencies (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  task_id uuid references tasks(id) on delete cascade not null,
+  depends_on_task_id uuid references tasks(id) on delete cascade not null,
+  dependency_type text not null default 'blocks', -- blocks, relates_to, duplicates
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(task_id, depends_on_task_id)
+);
+
+-- Enable Row Level Security (RLS)
+alter table task_dependencies enable row level security;
+
+-- Grants for task_dependencies table
+grant all on table task_dependencies to postgres, service_role;
+
+-- RLS Policies for task_dependencies
+drop policy if exists "Users can view their own task dependencies" on task_dependencies;
+create policy "Users can view their own task dependencies" on task_dependencies
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own task dependencies" on task_dependencies;
+create policy "Users can insert their own task dependencies" on task_dependencies
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own task dependencies" on task_dependencies;
+create policy "Users can delete their own task dependencies" on task_dependencies
+  for delete using (auth.uid() = user_id);
+
+-- Index for faster queries
+create index if not exists task_dependencies_task_id_idx on task_dependencies(task_id);
+create index if not exists task_dependencies_depends_on_idx on task_dependencies(depends_on_task_id);
+
+-- =====================
+-- AGENT SKILLS TABLE
+-- =====================
+create table if not exists agent_skills (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  agent_id uuid references agents(id) on delete cascade not null,
+  skill_name text not null,
+  skill_level integer not null check (skill_level >= 1 and skill_level <= 5) default 3, -- 1=beginner, 5=expert
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(agent_id, skill_name)
+);
+
+-- Enable Row Level Security (RLS)
+alter table agent_skills enable row level security;
+
+-- Grants for agent_skills table
+grant all on table agent_skills to postgres, service_role;
+
+-- RLS Policies for agent_skills
+drop policy if exists "Users can view their own agent skills" on agent_skills;
+create policy "Users can view their own agent skills" on agent_skills
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own agent skills" on agent_skills;
+create policy "Users can insert their own agent skills" on agent_skills
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own agent skills" on agent_skills;
+create policy "Users can update their own agent skills" on agent_skills
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own agent skills" on agent_skills;
+create policy "Users can delete their own agent skills" on agent_skills
+  for delete using (auth.uid() = user_id);
+
+-- Index for faster queries
+create index if not exists agent_skills_agent_id_idx on agent_skills(agent_id);
+create index if not exists agent_skills_skill_name_idx on agent_skills(skill_name);
+
+-- =====================
+-- AGENT PERFORMANCE TABLE
+-- =====================
+create table if not exists agent_performance (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  agent_id uuid references agents(id) on delete cascade not null,
+  task_id uuid references tasks(id) on delete cascade not null,
+  completion_time_hours integer, -- Time taken to complete the task
+  quality_score integer check (quality_score >= 1 and quality_score <= 5), -- 1=poor, 5=excellent
+  completed_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable Row Level Security (RLS)
+alter table agent_performance enable row level security;
+
+-- Grants for agent_performance table
+grant all on table agent_performance to postgres, service_role;
+
+-- RLS Policies for agent_performance
+drop policy if exists "Users can view their own agent performance" on agent_performance;
+create policy "Users can view their own agent performance" on agent_performance
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own agent performance" on agent_performance;
+create policy "Users can insert their own agent performance" on agent_performance
+  for insert with check (auth.uid() = user_id);
+
+-- Index for faster queries
+create index if not exists agent_performance_agent_id_idx on agent_performance(agent_id);
+create index if not exists agent_performance_task_id_idx on agent_performance(task_id);
+
+-- =====================
+-- FUNCTION: Create default agent skills for default agents
+-- =====================
+create or replace function create_default_agent_skills()
+returns trigger
+security definer
+set search_path = public
+language plpgsql
+as $$
+declare
+  alex_id uuid;
+  sarah_id uuid;
+  mike_id uuid;
+  emma_id uuid;
+  david_id uuid;
+begin
+  -- Get agent IDs
+  select id into alex_id from agents where user_id = new.id and name = 'Alex Chen' limit 1;
+  select id into sarah_id from agents where user_id = new.id and name = 'Sarah Johnson' limit 1;
+  select id into mike_id from agents where user_id = new.id and name = 'Mike Rodriguez' limit 1;
+  select id into emma_id from agents where user_id = new.id and name = 'Emma Wilson' limit 1;
+  select id into david_id from agents where user_id = new.id and name = 'David Kim' limit 1;
+
+  -- Alex Chen skills (Frontend specialist)
+  if alex_id is not null then
+    insert into agent_skills (user_id, agent_id, skill_name, skill_level) values
+      (new.id, alex_id, 'React', 5),
+      (new.id, alex_id, 'Next.js', 5),
+      (new.id, alex_id, 'TypeScript', 4),
+      (new.id, alex_id, 'CSS', 5),
+      (new.id, alex_id, 'UI/UX', 4);
+  end if;
+
+  -- Sarah Johnson skills (Backend specialist)
+  if sarah_id is not null then
+    insert into agent_skills (user_id, agent_id, skill_name, skill_level) values
+      (new.id, sarah_id, 'Node.js', 5),
+      (new.id, sarah_id, 'PostgreSQL', 5),
+      (new.id, sarah_id, 'API Design', 5),
+      (new.id, sarah_id, 'TypeScript', 4),
+      (new.id, sarah_id, 'Database Design', 5);
+  end if;
+
+  -- Mike Rodriguez skills (Full-stack)
+  if mike_id is not null then
+    insert into agent_skills (user_id, agent_id, skill_name, skill_level) values
+      (new.id, mike_id, 'React', 4),
+      (new.id, mike_id, 'Node.js', 4),
+      (new.id, mike_id, 'TypeScript', 5),
+      (new.id, mike_id, 'PostgreSQL', 3),
+      (new.id, mike_id, 'API Design', 4);
+  end if;
+
+  -- Emma Wilson skills (DevOps)
+  if emma_id is not null then
+    insert into agent_skills (user_id, agent_id, skill_name, skill_level) values
+      (new.id, emma_id, 'Docker', 5),
+      (new.id, emma_id, 'CI/CD', 5),
+      (new.id, emma_id, 'AWS', 4),
+      (new.id, emma_id, 'Kubernetes', 4),
+      (new.id, emma_id, 'Infrastructure', 5);
+  end if;
+
+  -- David Kim skills (Mobile)
+  if david_id is not null then
+    insert into agent_skills (user_id, agent_id, skill_name, skill_level) values
+      (new.id, david_id, 'React Native', 5),
+      (new.id, david_id, 'iOS', 4),
+      (new.id, david_id, 'Android', 4),
+      (new.id, david_id, 'TypeScript', 5),
+      (new.id, david_id, 'Mobile UI', 5);
+  end if;
+
+  return new;
+exception
+  when others then
+    raise notice 'Error creating agent skills: %', SQLERRM;
+    return new;
+end;
+$$;
+
+-- Drop existing trigger first if it exists
+drop trigger if exists on_auth_user_created_skills on auth.users;
+
+-- Create new trigger for agent skills (runs after agents are created)
+create trigger on_auth_user_created_skills
+  after insert on auth.users
+  for each row
+  execute function create_default_agent_skills();
