@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Task, TaskStatus } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
 import { generateId, generateTaskId } from '@/lib/utils';
@@ -30,8 +30,59 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
   const [newTaskPriority, setNewTaskPriority] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [newTaskTags, setNewTaskTags] = useState('');
   const [newTaskSprint, setNewTaskSprint] = useState('');
-  const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>('all');
+  const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>(() => {
+    // Initialize from localStorage on client-side only
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('kanban-selected-sprint') || 'all';
+    }
+    return 'all';
+  });
   const [error, setError] = useState<string | null>(null);
+
+  // Persist selected sprint to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('kanban-selected-sprint', selectedSprint);
+    }
+  }, [selectedSprint]);
+
+  // Generate auto-suggest sprint options
+  const generateSprintSuggestions = (): string[] => {
+    const suggestions = new Set<string>();
+
+    // Add existing sprints
+    tasks.forEach((task) => {
+      if (task.sprint) suggestions.add(task.sprint);
+    });
+
+    // Extract numeric sprints and suggest next one
+    const numericSprints = Array.from(suggestions)
+      .filter((s) => /^Sprint\s+\d+$/i.test(s))
+      .map((s) => parseInt(s.replace(/^Sprint\s+/i, ''), 10))
+      .filter((n) => !isNaN(n));
+
+    if (numericSprints.length > 0) {
+      const maxSprint = Math.max(...numericSprints);
+      suggestions.add(`Sprint ${maxSprint + 1}`);
+    } else {
+      suggestions.add('Sprint 1');
+    }
+
+    // Add date-based suggestions
+    const now = new Date();
+    const month = now.toLocaleString('default', { month: 'long' });
+    const year = now.getFullYear();
+    const quarter = Math.floor(now.getMonth() / 3) + 1;
+    const week = Math.ceil(now.getDate() / 7);
+
+    suggestions.add(`${month} ${year}`);
+    suggestions.add(`Q${quarter} ${year}`);
+    suggestions.add(`Week ${week} - ${month}`);
+
+    return Array.from(suggestions);
+  };
+
+  const sprintSuggestions = generateSprintSuggestions();
 
   const sprintOptions = Array.from(
     new Set(tasks.map((task) => task.sprint).filter((sprint): sprint is string => Boolean(sprint)))
@@ -82,6 +133,8 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
       setNewTaskPriority(3);
       setNewTaskSprint('');
       setIsAdding(false);
+      // Reset sprint filter to 'all' to ensure newly added task is visible
+      setSelectedSprint('all');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add task. Please try again.';
       setError(message);
@@ -198,7 +251,13 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                   placeholder="e.g., Sprint 12"
                   value={newTaskSprint}
                   onChange={e => setNewTaskSprint(e.target.value)}
+                  list="sprint-suggestions"
                 />
+                <datalist id="sprint-suggestions">
+                  {sprintSuggestions.map((suggestion) => (
+                    <option key={suggestion} value={suggestion} />
+                  ))}
+                </datalist>
               </div>
               {error && (
                 <div className="p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
