@@ -199,3 +199,363 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row
   execute function create_default_agents();
+
+-- =====================
+-- EPICS TABLE
+-- =====================
+create table if not exists epics (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  epic_id text not null,
+  title text not null,
+  description text,
+  status text not null default 'backlog',
+  priority integer not null check (priority >= 1 and priority <= 5) default 3,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for epics
+alter table epics enable row level security;
+grant all on table epics to postgres, service_role;
+
+-- RLS Policies for epics
+drop policy if exists "Users can view their own epics" on epics;
+create policy "Users can view their own epics" on epics
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own epics" on epics;
+create policy "Users can insert their own epics" on epics
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own epics" on epics;
+create policy "Users can update their own epics" on epics
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own epics" on epics;
+create policy "Users can delete their own epics" on epics
+  for delete using (auth.uid() = user_id);
+
+-- Indexes for epics
+create index if not exists epics_user_id_idx on epics(user_id);
+
+-- Add parent epic to tasks
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'epic_id') then
+    alter table tasks add column epic_id uuid references epics(id) on delete set null;
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'sprint') then
+    alter table tasks add column sprint text;
+  end if;
+end $$;
+
+create index if not exists tasks_epic_id_idx on tasks(epic_id);
+create index if not exists tasks_sprint_idx on tasks(sprint);
+
+-- =====================
+-- SUBTASKS TABLE
+-- =====================
+create table if not exists subtasks (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  task_id uuid references tasks(id) on delete cascade not null,
+  title text not null,
+  description text,
+  completed boolean default false,
+  order_index integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for subtasks
+alter table subtasks enable row level security;
+grant all on table subtasks to postgres, service_role;
+
+-- RLS Policies for subtasks
+drop policy if exists "Users can view their own subtasks" on subtasks;
+create policy "Users can view their own subtasks" on subtasks
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own subtasks" on subtasks;
+create policy "Users can insert their own subtasks" on subtasks
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own subtasks" on subtasks;
+create policy "Users can update their own subtasks" on subtasks
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own subtasks" on subtasks;
+create policy "Users can delete their own subtasks" on subtasks
+  for delete using (auth.uid() = user_id);
+
+-- Indexes for subtasks
+create index if not exists subtasks_user_id_idx on subtasks(user_id);
+create index if not exists subtasks_task_id_idx on subtasks(task_id);
+
+-- =====================
+-- DEFINITION OF DONE TABLE
+-- =====================
+create table if not exists definition_of_done (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  task_id uuid references tasks(id) on delete cascade not null,
+  criterion text not null,
+  completed boolean default false,
+  order_index integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for definition_of_done
+alter table definition_of_done enable row level security;
+grant all on table definition_of_done to postgres, service_role;
+
+-- RLS Policies for definition_of_done
+drop policy if exists "Users can view their own DoD" on definition_of_done;
+create policy "Users can view their own DoD" on definition_of_done
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own DoD" on definition_of_done;
+create policy "Users can insert their own DoD" on definition_of_done
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own DoD" on definition_of_done;
+create policy "Users can update their own DoD" on definition_of_done
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own DoD" on definition_of_done;
+create policy "Users can delete their own DoD" on definition_of_done
+  for delete using (auth.uid() = user_id);
+
+-- Indexes for definition_of_done
+create index if not exists dod_user_id_idx on definition_of_done(user_id);
+create index if not exists dod_task_id_idx on definition_of_done(task_id);
+
+-- =====================
+-- TEST NOTES TABLE
+-- =====================
+create table if not exists test_notes (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  task_id uuid references tasks(id) on delete cascade not null,
+  note text not null,
+  test_type text, -- e.g., 'unit', 'integration', 'e2e', 'manual'
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for test_notes
+alter table test_notes enable row level security;
+grant all on table test_notes to postgres, service_role;
+
+-- RLS Policies for test_notes
+drop policy if exists "Users can view their own test notes" on test_notes;
+create policy "Users can view their own test notes" on test_notes
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own test notes" on test_notes;
+create policy "Users can insert their own test notes" on test_notes
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own test notes" on test_notes;
+create policy "Users can update their own test notes" on test_notes
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own test notes" on test_notes;
+create policy "Users can delete their own test notes" on test_notes
+  for delete using (auth.uid() = user_id);
+
+-- Indexes for test_notes
+create index if not exists test_notes_user_id_idx on test_notes(user_id);
+create index if not exists test_notes_task_id_idx on test_notes(task_id);
+
+-- =====================
+-- RISK FLAGS TABLE
+-- =====================
+create table if not exists risk_flags (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  task_id uuid references tasks(id) on delete cascade not null,
+  risk_level text not null check (risk_level in ('low', 'medium', 'high', 'critical')),
+  description text not null,
+  mitigation_strategy text,
+  resolved boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for risk_flags
+alter table risk_flags enable row level security;
+grant all on table risk_flags to postgres, service_role;
+
+-- RLS Policies for risk_flags
+drop policy if exists "Users can view their own risk flags" on risk_flags;
+create policy "Users can view their own risk flags" on risk_flags
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own risk flags" on risk_flags;
+create policy "Users can insert their own risk flags" on risk_flags
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own risk flags" on risk_flags;
+create policy "Users can update their own risk flags" on risk_flags
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own risk flags" on risk_flags;
+create policy "Users can delete their own risk flags" on risk_flags
+  for delete using (auth.uid() = user_id);
+
+-- Indexes for risk_flags
+create index if not exists risk_flags_user_id_idx on risk_flags(user_id);
+create index if not exists risk_flags_task_id_idx on risk_flags(task_id);
+
+-- =====================
+-- TASK DEPENDENCIES TABLE
+-- =====================
+create table if not exists task_dependencies (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  task_id uuid references tasks(id) on delete cascade not null,
+  depends_on_task_id uuid references tasks(id) on delete cascade not null,
+  dependency_type text default 'blocks', -- 'blocks', 'blocked-by', 'related-to'
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  constraint no_self_dependency check (task_id != depends_on_task_id),
+  constraint unique_dependency unique (task_id, depends_on_task_id)
+);
+
+-- Enable RLS for task_dependencies
+alter table task_dependencies enable row level security;
+grant all on table task_dependencies to postgres, service_role;
+
+-- RLS Policies for task_dependencies
+drop policy if exists "Users can view their own dependencies" on task_dependencies;
+create policy "Users can view their own dependencies" on task_dependencies
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own dependencies" on task_dependencies;
+create policy "Users can insert their own dependencies" on task_dependencies
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own dependencies" on task_dependencies;
+create policy "Users can update their own dependencies" on task_dependencies
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own dependencies" on task_dependencies;
+create policy "Users can delete their own dependencies" on task_dependencies
+  for delete using (auth.uid() = user_id);
+
+-- Indexes for task_dependencies
+create index if not exists task_deps_user_id_idx on task_dependencies(user_id);
+create index if not exists task_deps_task_id_idx on task_dependencies(task_id);
+create index if not exists task_deps_depends_on_idx on task_dependencies(depends_on_task_id);
+
+-- =====================
+-- AGENT SKILLS TABLE
+-- =====================
+create table if not exists agent_skills (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  agent_id uuid references agents(id) on delete cascade not null,
+  skill_name text not null,
+  proficiency_level integer not null check (proficiency_level >= 1 and proficiency_level <= 5) default 3,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  constraint unique_agent_skill unique (agent_id, skill_name)
+);
+
+-- Enable RLS for agent_skills
+alter table agent_skills enable row level security;
+grant all on table agent_skills to postgres, service_role;
+
+-- RLS Policies for agent_skills
+drop policy if exists "Users can view their own agent skills" on agent_skills;
+create policy "Users can view their own agent skills" on agent_skills
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own agent skills" on agent_skills;
+create policy "Users can insert their own agent skills" on agent_skills
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own agent skills" on agent_skills;
+create policy "Users can update their own agent skills" on agent_skills
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own agent skills" on agent_skills;
+create policy "Users can delete their own agent skills" on agent_skills
+  for delete using (auth.uid() = user_id);
+
+-- Indexes for agent_skills
+create index if not exists agent_skills_user_id_idx on agent_skills(user_id);
+create index if not exists agent_skills_agent_id_idx on agent_skills(agent_id);
+
+-- =====================
+-- AGENT PERFORMANCE TABLE
+-- =====================
+create table if not exists agent_performance (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  agent_id uuid references agents(id) on delete cascade not null,
+  task_id uuid references tasks(id) on delete cascade not null,
+  completion_time_hours numeric,
+  quality_rating integer check (quality_rating >= 1 and quality_rating <= 5),
+  notes text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for agent_performance
+alter table agent_performance enable row level security;
+grant all on table agent_performance to postgres, service_role;
+
+-- RLS Policies for agent_performance
+drop policy if exists "Users can view their own agent performance" on agent_performance;
+create policy "Users can view their own agent performance" on agent_performance
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own agent performance" on agent_performance;
+create policy "Users can insert their own agent performance" on agent_performance
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own agent performance" on agent_performance;
+create policy "Users can update their own agent performance" on agent_performance
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own agent performance" on agent_performance;
+create policy "Users can delete their own agent performance" on agent_performance
+  for delete using (auth.uid() = user_id);
+
+-- Indexes for agent_performance
+create index if not exists agent_perf_user_id_idx on agent_performance(user_id);
+create index if not exists agent_perf_agent_id_idx on agent_performance(agent_id);
+create index if not exists agent_perf_task_id_idx on agent_performance(task_id);
+
+-- Triggers for updated_at columns
+drop trigger if exists update_epics_updated_at on epics;
+create trigger update_epics_updated_at
+  before update on epics
+  for each row
+  execute function update_updated_at_column();
+
+drop trigger if exists update_subtasks_updated_at on subtasks;
+create trigger update_subtasks_updated_at
+  before update on subtasks
+  for each row
+  execute function update_updated_at_column();
+
+drop trigger if exists update_test_notes_updated_at on test_notes;
+create trigger update_test_notes_updated_at
+  before update on test_notes
+  for each row
+  execute function update_updated_at_column();
+
+drop trigger if exists update_risk_flags_updated_at on risk_flags;
+create trigger update_risk_flags_updated_at
+  before update on risk_flags
+  for each row
+  execute function update_updated_at_column();
+
+drop trigger if exists update_agent_skills_updated_at on agent_skills;
+create trigger update_agent_skills_updated_at
+  before update on agent_skills
+  for each row
+  execute function update_updated_at_column();
