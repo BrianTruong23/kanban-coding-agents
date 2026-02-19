@@ -30,7 +30,13 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
   const [newTaskPriority, setNewTaskPriority] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [newTaskTags, setNewTaskTags] = useState('');
   const [newTaskSprint, setNewTaskSprint] = useState('');
-  const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>('all');
+  // Load sprint filter from localStorage on mount
+  const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('selectedSprint') || 'all';
+    }
+    return 'all';
+  });
   const [error, setError] = useState<string | null>(null);
 
   const sprintOptions = Array.from(
@@ -42,6 +48,52 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
     if (selectedSprint === 'none') return !task.sprint;
     return task.sprint === selectedSprint;
   });
+
+  // Persist sprint filter to localStorage
+  const handleSprintFilterChange = (sprint: string) => {
+    setSelectedSprint(sprint);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedSprint', sprint);
+    }
+  };
+
+  // Generate smart sprint suggestions
+  const getSprintSuggestions = (): string[] => {
+    const suggestions = new Set<string>();
+
+    // Add existing sprints
+    sprintOptions.forEach(sprint => suggestions.add(sprint));
+
+    // Extract sprint numbers from existing sprints
+    const sprintNumbers: number[] = [];
+    sprintOptions.forEach(sprint => {
+      const match = sprint.match(/Sprint[:\s]*(\d+)/i);
+      if (match) {
+        sprintNumbers.push(parseInt(match[1], 10));
+      }
+    });
+
+    // Suggest next sprint number
+    if (sprintNumbers.length > 0) {
+      const maxSprint = Math.max(...sprintNumbers);
+      suggestions.add(`Sprint ${maxSprint + 1}`);
+    } else {
+      suggestions.add('Sprint 1');
+    }
+
+    // Add date-based suggestions
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const quarter = Math.ceil(month / 3);
+    const week = Math.ceil(now.getDate() / 7);
+
+    suggestions.add(`${year} Q${quarter}`);
+    suggestions.add(`${now.toLocaleString('default', { month: 'long' })} ${year}`);
+    suggestions.add(`Week ${week} - ${now.toLocaleString('default', { month: 'short' })}`);
+
+    return Array.from(suggestions);
+  };
 
   const handleAdd = async (e: React.FormEvent, status: TaskStatus = 'backlog') => {
     e.preventDefault();
@@ -82,6 +134,8 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
       setNewTaskPriority(3);
       setNewTaskSprint('');
       setIsAdding(false);
+      // Reset sprint filter to "all" to ensure newly added task is visible
+      handleSprintFilterChange('all');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add task. Please try again.';
       setError(message);
@@ -115,7 +169,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
             <select
               className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/20"
               value={selectedSprint}
-              onChange={(e) => setSelectedSprint(e.target.value)}
+              onChange={(e) => handleSprintFilterChange(e.target.value)}
             >
               <option value="all">All Sprints</option>
               {hasUnassignedSprint && <option value="none">No Sprint</option>}
@@ -198,7 +252,13 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
                   placeholder="e.g., Sprint 12"
                   value={newTaskSprint}
                   onChange={e => setNewTaskSprint(e.target.value)}
+                  list="sprint-suggestions"
                 />
+                <datalist id="sprint-suggestions">
+                  {getSprintSuggestions().map((suggestion) => (
+                    <option key={suggestion} value={suggestion} />
+                  ))}
+                </datalist>
               </div>
               {error && (
                 <div className="p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded text-xs text-red-600 dark:text-red-400">
