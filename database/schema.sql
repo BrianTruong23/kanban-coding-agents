@@ -113,6 +113,11 @@ begin
   if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'tags') then
     alter table tasks add column tags text[] default '{}';
   end if;
+
+  -- sprint (optional sprint category field)
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'sprint') then
+    alter table tasks add column sprint text;
+  end if;
 end $$;
 
 -- Fix Status Constraint (Idempotent)
@@ -146,6 +151,7 @@ create policy "Users can delete their own tasks" on tasks
 create index if not exists tasks_user_id_idx on tasks(user_id);
 create index if not exists tasks_status_idx on tasks(status);
 create index if not exists tasks_assigned_agent_idx on tasks(assigned_agent_id);
+create index if not exists tasks_sprint_idx on tasks(sprint);
 
 -- =====================
 -- FUNCTION: Auto-update updated_at
