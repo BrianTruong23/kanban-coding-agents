@@ -3,7 +3,7 @@
 import { useTasks } from '@/hooks/useTasks';
 import { useAgents } from '@/hooks/useAgents';
 import { useAuth } from '@/contexts/AuthContext';
-import { KanbanBoard } from '@/components/KanbanBoard';
+import { EnhancedKanbanView } from '@/components/EnhancedKanbanView';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { LogOut } from 'lucide-react';
 
@@ -77,7 +77,7 @@ export default function Home() {
       </header>
       
       <main className="flex-1 overflow-hidden px-4 pb-4 max-w-[1800px] mx-auto w-full">
-        <KanbanBoard
+        <EnhancedKanbanView
           tasks={tasks}
           agents={agents}
           onAddTask={addTask}
