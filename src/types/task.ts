@@ -1,4 +1,6 @@
 export type TaskStatus = 'backlog' | 'in-progress' | 'review' | 'done';
+export type TaskType = 'epic' | 'task' | 'subtask';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
 export interface Task {
   id: string;
@@ -14,4 +16,12 @@ export interface Task {
   attachmentsCount?: number;
   createdAt: number;
   updatedAt: number;
+  // New fields for task breakdown
+  taskType?: TaskType;
+  epicId?: string;
+  parentTaskId?: string;
+  definitionOfDone?: string;
+  testNotes?: string;
+  riskLevel?: RiskLevel;
+  estimatedHours?: number;
 }

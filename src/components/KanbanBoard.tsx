@@ -4,9 +4,15 @@ import { useState } from 'react';
 import { Task, TaskStatus } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
 import { generateId, generateTaskId } from '@/lib/utils';
-import { Plus, X, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Plus, X, ArrowRight, ArrowLeft, Sparkles, Users, Network } from 'lucide-react';
 import { TaskItem } from './TaskItem';
 import { AgentSelector } from './AgentSelector';
+import { TaskBreakdownWizard } from './TaskBreakdownWizard';
+import { AgentRosterManager } from './AgentRosterManager';
+import { DependencyGraph } from './DependencyGraph';
+import { AIBreakdownResponse } from '@/types/taskBreakdown';
+import { AgentSkill } from '@/types/agentSkill';
+import { DependencyGraph as DependencyGraphType, DependencyNode, DependencyEdge } from '@/types/dependency';
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -32,6 +38,12 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
   const [newTaskSprint, setNewTaskSprint] = useState('');
   const [selectedSprint, setSelectedSprint] = useState<'all' | 'none' | string>('all');
   const [error, setError] = useState<string | null>(null);
+
+  // New feature states
+  const [showBreakdownWizard, setShowBreakdownWizard] = useState(false);
+  const [showAgentRoster, setShowAgentRoster] = useState(false);
+  const [showDependencyGraph, setShowDependencyGraph] = useState(false);
+  const [agentSkills, setAgentSkills] = useState<Map<string, AgentSkill[]>>(new Map());
 
   const sprintOptions = Array.from(
     new Set(tasks.map((task) => task.sprint).filter((sprint): sprint is string => Boolean(sprint)))
@@ -104,6 +116,73 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
     onUpdateTask({ ...task, assignedAgentId: agentId });
   };
 
+  const handleBreakdownComplete = async (breakdown: AIBreakdownResponse) => {
+    try {
+      // Create tasks from the breakdown
+      let taskCounter = 0;
+      tasks.forEach(task => {
+        if (task.taskId) {
+          const match = task.taskId.match(/TASK-(\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > taskCounter) taskCounter = num;
+          }
+        }
+      });
+
+      for (const epic of breakdown.epics) {
+        for (const generatedTask of epic.tasks) {
+          taskCounter++;
+          const newTask: Task = {
+            id: generateId(),
+            taskId: generateTaskId(taskCounter),
+            title: generatedTask.title,
+            description: generatedTask.description,
+            status: 'backlog',
+            priority: generatedTask.priority,
+            tags: generatedTask.tags,
+            commentsCount: 0,
+            attachmentsCount: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            taskType: 'task',
+            definitionOfDone: generatedTask.definitionOfDone.join('\n'),
+            testNotes: generatedTask.testNotes.join('\n'),
+            riskLevel: generatedTask.riskLevel,
+            estimatedHours: generatedTask.estimatedHours,
+          };
+          await onAddTask(newTask);
+        }
+      }
+
+      setShowBreakdownWizard(false);
+    } catch (error) {
+      console.error('Failed to create tasks from breakdown:', error);
+      setError('Failed to create tasks. Please try again.');
+    }
+  };
+
+  const buildDependencyGraph = (): DependencyGraphType => {
+    const nodes: DependencyNode[] = tasks.map(task => ({
+      id: task.id,
+      taskId: task.taskId,
+      title: task.title,
+      status: task.status,
+      type: task.taskType || 'task',
+    }));
+
+    // For now, edges are empty - they would be populated from task_dependencies table
+    const edges: DependencyEdge[] = [];
+
+    return { nodes, edges };
+  };
+
+  const handleUpdateAgentSkills = (agentId: string, skills: AgentSkill[]) => {
+    const newSkillsMap = new Map(agentSkills);
+    newSkillsMap.set(agentId, skills);
+    setAgentSkills(newSkillsMap);
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
@@ -126,6 +205,27 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
               ))}
             </select>
           </div>
+          <button
+            onClick={() => setShowDependencyGraph(true)}
+            className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            title="View Dependencies"
+          >
+            <Network size={16} />
+          </button>
+          <button
+            onClick={() => setShowAgentRoster(true)}
+            className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            title="Manage Agents"
+          >
+            <Users size={16} />
+          </button>
+          <button
+            onClick={() => setShowBreakdownWizard(true)}
+            className="border border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+            title="AI Task Breakdown"
+          >
+            <Sparkles size={16} /> Breakdown
+          </button>
           <button
             onClick={() => setIsAdding(true)}
             className="bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
@@ -231,6 +331,31 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modals */}
+      {showBreakdownWizard && (
+        <TaskBreakdownWizard
+          onComplete={handleBreakdownComplete}
+          onCancel={() => setShowBreakdownWizard(false)}
+        />
+      )}
+
+      {showAgentRoster && (
+        <AgentRosterManager
+          agents={agents}
+          agentSkills={agentSkills}
+          onUpdateAgent={onUpdateTask as any}
+          onUpdateSkills={handleUpdateAgentSkills}
+          onClose={() => setShowAgentRoster(false)}
+        />
+      )}
+
+      {showDependencyGraph && (
+        <DependencyGraph
+          graph={buildDependencyGraph()}
+          onClose={() => setShowDependencyGraph(false)}
+        />
       )}
 
       {/* Error Display */}

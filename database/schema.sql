@@ -199,3 +199,217 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row
   execute function create_default_agents();
+
+-- =====================
+-- AGENT SKILLS TABLE
+-- =====================
+create table if not exists agent_skills (
+  id uuid default gen_random_uuid() primary key,
+  agent_id uuid references agents(id) on delete cascade not null,
+  skill_name text not null,
+  proficiency integer check (proficiency >= 1 and proficiency <= 5) default 3,
+  performance_score integer default 0, -- Track performance over time
+  tasks_completed integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS
+alter table agent_skills enable row level security;
+
+-- Grants
+grant all on table agent_skills to postgres, service_role;
+
+-- RLS Policies
+drop policy if exists "Users can view skills for their agents" on agent_skills;
+create policy "Users can view skills for their agents" on agent_skills
+  for select using (
+    exists (
+      select 1 from agents
+      where agents.id = agent_skills.agent_id
+      and agents.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can insert skills for their agents" on agent_skills;
+create policy "Users can insert skills for their agents" on agent_skills
+  for insert with check (
+    exists (
+      select 1 from agents
+      where agents.id = agent_skills.agent_id
+      and agents.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can update skills for their agents" on agent_skills;
+create policy "Users can update skills for their agents" on agent_skills
+  for update using (
+    exists (
+      select 1 from agents
+      where agents.id = agent_skills.agent_id
+      and agents.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can delete skills for their agents" on agent_skills;
+create policy "Users can delete skills for their agents" on agent_skills
+  for delete using (
+    exists (
+      select 1 from agents
+      where agents.id = agent_skills.agent_id
+      and agents.user_id = auth.uid()
+    )
+  );
+
+-- Index
+create index if not exists agent_skills_agent_id_idx on agent_skills(agent_id);
+
+-- =====================
+-- EPICS TABLE
+-- =====================
+create table if not exists epics (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  epic_id text not null,
+  title text not null,
+  description text,
+  status text not null default 'planning',
+  priority integer not null check (priority >= 1 and priority <= 5) default 3,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS
+alter table epics enable row level security;
+
+-- Grants
+grant all on table epics to postgres, service_role;
+
+-- RLS Policies
+drop policy if exists "Users can view their own epics" on epics;
+create policy "Users can view their own epics" on epics
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own epics" on epics;
+create policy "Users can insert their own epics" on epics
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own epics" on epics;
+create policy "Users can update their own epics" on epics
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own epics" on epics;
+create policy "Users can delete their own epics" on epics
+  for delete using (auth.uid() = user_id);
+
+-- Index
+create index if not exists epics_user_id_idx on epics(user_id);
+
+-- Trigger for updated_at
+drop trigger if exists update_epics_updated_at on epics;
+create trigger update_epics_updated_at
+  before update on epics
+  for each row
+  execute function update_updated_at_column();
+
+-- =====================
+-- MIGRATION: Add epic_id to tasks
+-- =====================
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'epic_id') then
+    alter table tasks add column epic_id uuid references epics(id) on delete set null;
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'parent_task_id') then
+    alter table tasks add column parent_task_id uuid references tasks(id) on delete cascade;
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'task_type') then
+    alter table tasks add column task_type text not null default 'task';
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'definition_of_done') then
+    alter table tasks add column definition_of_done text;
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'test_notes') then
+    alter table tasks add column test_notes text;
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'risk_level') then
+    alter table tasks add column risk_level text default 'low';
+  end if;
+
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'estimated_hours') then
+    alter table tasks add column estimated_hours integer;
+  end if;
+end $$;
+
+-- Add constraint for task_type
+alter table tasks drop constraint if exists tasks_task_type_check;
+alter table tasks add constraint tasks_task_type_check check (task_type in ('epic', 'task', 'subtask'));
+
+-- Add constraint for risk_level
+alter table tasks drop constraint if exists tasks_risk_level_check;
+alter table tasks add constraint tasks_risk_level_check check (risk_level in ('low', 'medium', 'high', 'critical'));
+
+-- Index for epic_id
+create index if not exists tasks_epic_id_idx on tasks(epic_id);
+create index if not exists tasks_parent_task_id_idx on tasks(parent_task_id);
+
+-- =====================
+-- TASK DEPENDENCIES TABLE
+-- =====================
+create table if not exists task_dependencies (
+  id uuid default gen_random_uuid() primary key,
+  task_id uuid references tasks(id) on delete cascade not null,
+  depends_on_task_id uuid references tasks(id) on delete cascade not null,
+  dependency_type text not null default 'blocks', -- blocks, related, parent-child
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  constraint no_self_dependency check (task_id != depends_on_task_id)
+);
+
+-- Enable RLS
+alter table task_dependencies enable row level security;
+
+-- Grants
+grant all on table task_dependencies to postgres, service_role;
+
+-- RLS Policies
+drop policy if exists "Users can view dependencies for their tasks" on task_dependencies;
+create policy "Users can view dependencies for their tasks" on task_dependencies
+  for select using (
+    exists (
+      select 1 from tasks
+      where tasks.id = task_dependencies.task_id
+      and tasks.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can insert dependencies for their tasks" on task_dependencies;
+create policy "Users can insert dependencies for their tasks" on task_dependencies
+  for insert with check (
+    exists (
+      select 1 from tasks
+      where tasks.id = task_dependencies.task_id
+      and tasks.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can delete dependencies for their tasks" on task_dependencies;
+create policy "Users can delete dependencies for their tasks" on task_dependencies
+  for delete using (
+    exists (
+      select 1 from tasks
+      where tasks.id = task_dependencies.task_id
+      and tasks.user_id = auth.uid()
+    )
+  );
+
+-- Indexes
+create index if not exists task_dependencies_task_id_idx on task_dependencies(task_id);
+create index if not exists task_dependencies_depends_on_idx on task_dependencies(depends_on_task_id);
+
+-- Constraint for dependency_type
+alter table task_dependencies drop constraint if exists task_dependencies_type_check;
+alter table task_dependencies add constraint task_dependencies_type_check check (dependency_type in ('blocks', 'related', 'parent-child'));
