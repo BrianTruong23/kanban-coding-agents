@@ -1,8 +1,9 @@
 import { Task } from '@/types/task';
 import { CodingAgent } from '@/types/agent';
-import { X, MessageCircle, Paperclip, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { X, MessageCircle, Paperclip, ArrowUp, ArrowDown, Minus, AlertTriangle, CheckCircle2, FileText, Clock } from 'lucide-react';
 import clsx from 'clsx';
 import { getInitials, getAvatarColor } from '@/lib/utils';
+import { useState } from 'react';
 
 interface TaskItemProps {
   task: Task;
@@ -12,6 +13,7 @@ interface TaskItemProps {
 }
 
 export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
+  const [showDetails, setShowDetails] = useState(false);
   const assignedAgent = agents.find(a => a.id === task.assignedAgentId);
 
   const tagColors: { [key: string]: string } = {
@@ -39,8 +41,24 @@ export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
     ? (assignedAgent.avatarColor || getAvatarColor(assignedAgent.name))
     : 'bg-gray-400';
 
+  const getRiskColor = (risk?: string) => {
+    switch (risk) {
+      case 'critical':
+        return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
+      case 'high':
+        return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
+      case 'medium':
+        return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
+      default:
+        return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 group relative hover:shadow-md transition-all cursor-pointer">
+    <div
+      className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 group relative hover:shadow-md transition-all cursor-pointer"
+      onClick={() => setShowDetails(!showDetails)}
+    >
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -82,6 +100,17 @@ export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
           </div>
         )}
 
+        {/* Risk Flag */}
+        {task.riskLevel && task.riskLevel !== 'low' && (
+          <div className={clsx(
+            "flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold mb-2",
+            getRiskColor(task.riskLevel)
+          )}>
+            <AlertTriangle size={12} />
+            <span className="uppercase">{task.riskLevel} RISK</span>
+          </div>
+        )}
+
         {/* Footer with icons and assignee */}
         <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-600">
           <div className="flex items-center gap-2">
@@ -89,6 +118,28 @@ export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
             <div className="flex items-center">
               {getPriorityIcon(task.priority)}
             </div>
+
+            {/* DoD indicator */}
+            {task.definitionOfDone && task.definitionOfDone.length > 0 && (
+              <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400" title="Has Definition of Done">
+                <CheckCircle2 size={14} />
+              </div>
+            )}
+
+            {/* Test notes indicator */}
+            {task.testNotes && (
+              <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400" title="Has test notes">
+                <FileText size={14} />
+              </div>
+            )}
+
+            {/* Estimated hours */}
+            {task.estimatedHours && (
+              <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400" title={`Estimated: ${task.estimatedHours}h`}>
+                <Clock size={14} />
+                <span className="text-xs">{task.estimatedHours}h</span>
+              </div>
+            )}
 
             {/* Comments */}
             {task.commentsCount !== undefined && task.commentsCount > 0 && (
@@ -120,6 +171,65 @@ export const TaskItem = ({ task, agents, onDelete }: TaskItemProps) => {
             </div>
           )}
         </div>
+
+        {/* Expanded Details */}
+        {showDetails && (
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2" onClick={(e) => e.stopPropagation()}>
+            {/* Description */}
+            {task.description && (
+              <div>
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Description:</span>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{task.description}</p>
+              </div>
+            )}
+
+            {/* Definition of Done */}
+            {task.definitionOfDone && task.definitionOfDone.length > 0 && (
+              <div>
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Definition of Done:</span>
+                <ul className="list-disc list-inside text-xs text-gray-600 dark:text-gray-400 mt-1 space-y-0.5">
+                  {task.definitionOfDone.map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Test Notes */}
+            {task.testNotes && (
+              <div>
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Test Notes:</span>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{task.testNotes}</p>
+              </div>
+            )}
+
+            {/* Risk Notes */}
+            {task.riskNotes && (
+              <div>
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Risk Notes:</span>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{task.riskNotes}</p>
+              </div>
+            )}
+
+            {/* Effort Tracking */}
+            {(task.estimatedHours || task.actualHours) && (
+              <div className="flex gap-4 text-xs">
+                {task.estimatedHours && (
+                  <div>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">Estimated:</span>
+                    <span className="text-gray-600 dark:text-gray-400 ml-1">{task.estimatedHours}h</span>
+                  </div>
+                )}
+                {task.actualHours && (
+                  <div>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">Actual:</span>
+                    <span className="text-gray-600 dark:text-gray-400 ml-1">{task.actualHours}h</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

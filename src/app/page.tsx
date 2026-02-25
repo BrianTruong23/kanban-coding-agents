@@ -4,8 +4,11 @@ import { useTasks } from '@/hooks/useTasks';
 import { useAgents } from '@/hooks/useAgents';
 import { useAuth } from '@/contexts/AuthContext';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { OrchestrationView } from '@/components/OrchestrationView';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { Task } from '@/types/task';
 
 import { useRouter } from 'next/navigation';
 
@@ -14,10 +17,18 @@ export default function Home() {
   const { agents, isLoaded: agentsLoaded } = useAgents();
   const { user, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const [dependencies] = useState<any[]>([]); // TODO: Implement dependencies hook
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
+  };
+
+  const handleTasksCreated = async (newTasks: Task[]) => {
+    // Add all new tasks
+    for (const task of newTasks) {
+      await addTask(task);
+    }
   };
 
   if (authLoading) {
@@ -77,6 +88,16 @@ export default function Home() {
       </header>
       
       <main className="flex-1 overflow-hidden px-4 pb-4 max-w-[1800px] mx-auto w-full">
+        {/* Orchestration View */}
+        <OrchestrationView
+          tasks={tasks}
+          agents={agents}
+          dependencies={dependencies}
+          onTasksCreated={handleTasksCreated}
+          onTaskUpdated={updateTask}
+        />
+
+        {/* Kanban Board */}
         <KanbanBoard
           tasks={tasks}
           agents={agents}
