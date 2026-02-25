@@ -81,6 +81,7 @@ export const KanbanBoard = ({ tasks, agents, onAddTask, onUpdateTask, onDeleteTa
       setNewTaskTags('');
       setNewTaskPriority(3);
       setNewTaskSprint('');
+      setSelectedSprint('all');
       setIsAdding(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add task. Please try again.';
