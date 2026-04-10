@@ -46,13 +46,11 @@ export const useTasks = () => {
   const supabase = useMemo(() => createClient(), []);
   const fetchingRef = useRef(false);
 
-  useEffect(() => {
-    // Skip if auth is loading, already fetched, or currently fetching
-    if (authLoading || hasFetched || fetchingRef.current || !user) return;
+  const fetchTasks = useCallback(async () => {
+    if (!user || fetchingRef.current) return;
 
     fetchingRef.current = true;
-
-    const fetchTasks = async () => {
+    try {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -63,12 +61,29 @@ export const useTasks = () => {
       } else {
         setTasks((data || []).map(mapDbTaskToTask));
       }
+    } finally {
       setHasFetched(true);
       fetchingRef.current = false;
-    };
+    }
+  }, [user, supabase]);
 
-    fetchTasks();
-  }, [user, authLoading, hasFetched, supabase]);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setTasks([]);
+      setHasFetched(true);
+      return;
+    }
+
+    setHasFetched(false);
+    void fetchTasks();
+
+    const interval = window.setInterval(() => {
+      void fetchTasks();
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, [authLoading, user, fetchTasks]);
 
   // Derived loading state
   const isLoaded = useMemo(() => {

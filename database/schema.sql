@@ -8,9 +8,19 @@ create table if not exists agents (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade not null,
   name text not null,
+  slug text,
   description text,
   avatar text,
   avatar_color text,
+  agent_type text not null default 'manual',
+  transport text not null default 'web',
+  runtime_location text,
+  telegram_bot text,
+  status text not null default 'offline',
+  api_key_hash text,
+  api_key_preview text,
+  last_seen_at timestamp with time zone,
+  metadata jsonb not null default '{}'::jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -24,6 +34,11 @@ begin
     alter table agents add column description text;
   end if;
 
+  -- slug
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'slug') then
+    alter table agents add column slug text;
+  end if;
+
   -- avatar
   if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'avatar') then
     alter table agents add column avatar text;
@@ -33,7 +48,61 @@ begin
   if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'avatar_color') then
     alter table agents add column avatar_color text;
   end if;
+
+  -- agent_type
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'agent_type') then
+    alter table agents add column agent_type text not null default 'manual';
+  end if;
+
+  -- transport
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'transport') then
+    alter table agents add column transport text not null default 'web';
+  end if;
+
+  -- runtime_location
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'runtime_location') then
+    alter table agents add column runtime_location text;
+  end if;
+
+  -- telegram_bot
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'telegram_bot') then
+    alter table agents add column telegram_bot text;
+  end if;
+
+  -- status
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'status') then
+    alter table agents add column status text not null default 'offline';
+  end if;
+
+  -- api_key_hash
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'api_key_hash') then
+    alter table agents add column api_key_hash text;
+  end if;
+
+  -- api_key_preview
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'api_key_preview') then
+    alter table agents add column api_key_preview text;
+  end if;
+
+  -- last_seen_at
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'last_seen_at') then
+    alter table agents add column last_seen_at timestamp with time zone;
+  end if;
+
+  -- metadata
+  if not exists (select 1 from information_schema.columns where table_name = 'agents' and column_name = 'metadata') then
+    alter table agents add column metadata jsonb not null default '{}'::jsonb;
+  end if;
 end $$;
+
+alter table agents drop constraint if exists agents_agent_type_check;
+alter table agents add constraint agents_agent_type_check check (agent_type in ('manual', 'external'));
+
+alter table agents drop constraint if exists agents_transport_check;
+alter table agents add constraint agents_transport_check check (transport in ('web', 'telegram', 'http'));
+
+alter table agents drop constraint if exists agents_status_check;
+alter table agents add constraint agents_status_check check (status in ('offline', 'online', 'idle', 'busy'));
 
 -- Enable Row Level Security (RLS)
 alter table agents enable row level security;
@@ -60,6 +129,8 @@ create policy "Users can delete their own agents" on agents
 
 -- Index for faster queries
 create index if not exists agents_user_id_idx on agents(user_id);
+create unique index if not exists agents_user_slug_idx on agents(user_id, slug) where slug is not null;
+create unique index if not exists agents_api_key_hash_idx on agents(api_key_hash) where api_key_hash is not null;
 
 -- =====================
 -- TASKS TABLE
@@ -71,6 +142,8 @@ create table if not exists tasks (
   title text not null,
   description text,
   status text not null default 'backlog',
+  sprint text,
+  assigned_agent_id uuid references agents(id) on delete set null,
   priority integer not null check (priority >= 1 and priority <= 5) default 3,
   tags text[] default '{}',
   comments_count integer default 0,
@@ -92,6 +165,11 @@ begin
   -- assigned_agent_id
   if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'assigned_agent_id') then
     alter table tasks add column assigned_agent_id uuid references agents(id) on delete set null;
+  end if;
+
+  -- sprint
+  if not exists (select 1 from information_schema.columns where table_name = 'tasks' and column_name = 'sprint') then
+    alter table tasks add column sprint text;
   end if;
 
   -- priority
@@ -146,6 +224,53 @@ create policy "Users can delete their own tasks" on tasks
 create index if not exists tasks_user_id_idx on tasks(user_id);
 create index if not exists tasks_status_idx on tasks(status);
 create index if not exists tasks_assigned_agent_idx on tasks(assigned_agent_id);
+
+-- =====================
+-- AGENT MESSAGES TABLE
+-- =====================
+create table if not exists agent_messages (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  from_agent_id uuid references agents(id) on delete set null,
+  to_agent_id uuid references agents(id) on delete set null,
+  task_id uuid references tasks(id) on delete cascade,
+  body text not null,
+  channel text not null default 'global',
+  created_by text not null default 'user',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table agent_messages drop constraint if exists agent_messages_channel_check;
+alter table agent_messages add constraint agent_messages_channel_check check (channel in ('global', 'direct', 'task'));
+
+alter table agent_messages drop constraint if exists agent_messages_created_by_check;
+alter table agent_messages add constraint agent_messages_created_by_check check (created_by in ('user', 'agent', 'system'));
+
+alter table agent_messages enable row level security;
+
+grant all on table agent_messages to postgres, service_role;
+
+drop policy if exists "Users can view their own messages" on agent_messages;
+create policy "Users can view their own messages" on agent_messages
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own messages" on agent_messages;
+create policy "Users can insert their own messages" on agent_messages
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own messages" on agent_messages;
+create policy "Users can update their own messages" on agent_messages
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own messages" on agent_messages;
+create policy "Users can delete their own messages" on agent_messages
+  for delete using (auth.uid() = user_id);
+
+create index if not exists agent_messages_user_id_idx on agent_messages(user_id);
+create index if not exists agent_messages_to_agent_id_idx on agent_messages(to_agent_id);
+create index if not exists agent_messages_task_id_idx on agent_messages(task_id);
+create index if not exists agent_messages_created_at_idx on agent_messages(created_at desc);
 
 -- =====================
 -- FUNCTION: Auto-update updated_at

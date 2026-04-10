@@ -32,3 +32,28 @@ export const getAvatarColor = (name: string): string => {
   }
   return colors[Math.abs(hash) % colors.length];
 };
+
+export const slugify = (value: string): string => {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 50);
+};
+
+export const formatRelativeTime = (timestamp?: number): string => {
+  if (!timestamp) return 'Never seen';
+
+  const deltaMs = Date.now() - timestamp;
+  const deltaMinutes = Math.floor(deltaMs / 60000);
+
+  if (deltaMinutes < 1) return 'Just now';
+  if (deltaMinutes < 60) return `${deltaMinutes}m ago`;
+
+  const deltaHours = Math.floor(deltaMinutes / 60);
+  if (deltaHours < 24) return `${deltaHours}h ago`;
+
+  const deltaDays = Math.floor(deltaHours / 24);
+  return `${deltaDays}d ago`;
+};

@@ -2,8 +2,10 @@
 
 import { useTasks } from '@/hooks/useTasks';
 import { useAgents } from '@/hooks/useAgents';
+import { useMessages } from '@/hooks/useMessages';
 import { useAuth } from '@/contexts/AuthContext';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { OperationsPanel } from '@/components/OperationsPanel';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { LogOut } from 'lucide-react';
 
@@ -11,7 +13,8 @@ import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const { tasks, addTask, updateTask, deleteTask, isLoaded: tasksLoaded } = useTasks();
-  const { agents, isLoaded: agentsLoaded } = useAgents();
+  const { agents, addAgent, isLoaded: agentsLoaded } = useAgents();
+  const { messages, sendMessage, isSending, isLoaded: messagesLoaded } = useMessages();
   const { user, signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -28,10 +31,10 @@ export default function Home() {
     );
   }
 
-  if (!tasksLoaded || !agentsLoaded) {
+  if (!tasksLoaded || !agentsLoaded || !messagesLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-400 dark:text-gray-500">
-        Loading kanban board...
+        Loading control plane...
       </div>
     );
   }
@@ -77,13 +80,25 @@ export default function Home() {
       </header>
       
       <main className="flex-1 overflow-hidden px-4 pb-4 max-w-[1800px] mx-auto w-full">
-        <KanbanBoard
-          tasks={tasks}
-          agents={agents}
-          onAddTask={addTask}
-          onUpdateTask={updateTask}
-          onDeleteTask={deleteTask}
-        />
+        <div className="h-full flex flex-col xl:flex-row gap-4 overflow-hidden">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <KanbanBoard
+              tasks={tasks}
+              agents={agents}
+              onAddTask={addTask}
+              onUpdateTask={updateTask}
+              onDeleteTask={deleteTask}
+            />
+          </div>
+          <OperationsPanel
+            agents={agents}
+            tasks={tasks}
+            messages={messages}
+            onAddAgent={addAgent}
+            onSendMessage={sendMessage}
+            isSendingMessage={isSending}
+          />
+        </div>
       </main>
     </div>
   );

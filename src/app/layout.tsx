@@ -4,8 +4,8 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Kanban for Coding Agents",
-  description: "Manage tasks assigned to coding agents",
+  title: "Coding Agent Control Plane",
+  description: "Assign work to coding agents and coordinate them through a shared control plane",
 };
 
 export default function RootLayout({

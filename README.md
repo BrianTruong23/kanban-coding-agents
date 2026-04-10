@@ -1,127 +1,150 @@
-# Kanban for Coding Agents
+# Kanban Control Plane for Coding Agents
 
-A Next.js application for managing tasks assigned to coding agents. This kanban board helps you visualize and track what tasks are assigned to which coding agents, making it easy to manage your development workflow.
+This repo is now structured as a small control plane for human-dispatched and machine-run coding agents.
 
-## Features
+It has three jobs:
 
-- **Jira-Style Kanban Board**: Visual board with columns matching Jira: TO DO, IN PROGRESS, IN REVIEW, and DONE
-- **Agent Assignment**: Assign tasks to specific coding agents with colored avatar circles
-- **Task IDs**: Each task gets a unique ID (e.g., TASK-1, TASK-2)
-- **Task Management**: Create, update, move, and delete tasks
-- **Priority Indicators**: Visual priority indicators (arrows) for high, medium, and low priority
-- **Colored Tags**: Add colored tags to categorize tasks (frontend, backend, bug, feature, etc.)
-- **Agent Avatars**: Color-coded avatar circles with initials for each agent
-- **Comments & Attachments**: Placeholder support for comments and attachments count
-- **Local Storage**: All data is stored locally in your browser
+1. Show a Vercel-hosted kanban board for assigning work.
+2. Register external agents such as your Desktop, Documents, and VM Nano Claw workers.
+3. Provide a shared API and message feed so those workers can claim tasks, post progress, and talk through one central place.
 
-## Getting Started
+## What Is In This Directory
 
-### Prerequisites
+```text
+src/app
+  page.tsx                     Main authenticated dashboard
+  api/agent/*                  External agent API for bootstrap, tasks, messages, heartbeat
+  login, signup, auth          Supabase auth flow
 
-- Node.js 18+ installed
-- npm, yarn, pnpm, or bun
+src/components
+  KanbanBoard.tsx              Task board and task creation
+  OperationsPanel.tsx          Agent registry, one-time keys, dispatch feed, recent messages
+  TaskItem.tsx                 Task card UI
+  AgentSelector.tsx            Task-to-agent assignment
 
-### Installation
+src/hooks
+  useTasks.ts                  Task loading, polling, CRUD
+  useAgents.ts                 Agent loading, polling, CRUD
+  useMessages.ts               Message feed loading, polling, send
 
-1. Install dependencies:
+src/lib
+  supabase/*                   Browser/server/admin Supabase clients
+  agent-api.ts                 Agent key auth helpers for API routes
+  utils.ts                     Shared UI helpers
+
+database/schema.sql            Full Supabase schema, policies, indexes, agent/message tables
+examples/agent-control-plane.js Minimal external worker example
+```
+
+## Architecture
+
+### Human side
+
+- You sign into the web app.
+- You create tasks and assign them to agents.
+- You register new external agents in the `Control Plane` panel.
+- The app generates a one-time secret for each external agent.
+
+### Agent side
+
+- Each external worker stores its `AGENT_KEY`.
+- It calls the Vercel app with header `x-agent-key`.
+- It uses:
+  - `GET /api/agent/bootstrap` to learn its identity, peers, visible tasks, and recent messages
+  - `GET /api/agent/tasks` to fetch assigned work
+  - `PATCH /api/agent/tasks/:taskId` to claim or update work
+  - `GET/POST /api/agent/messages` to read and send messages
+  - `POST /api/agent/heartbeat` to keep presence fresh
+
+This makes the Vercel app the coordination layer while your Telegram-connected Nano Claw workers continue running on their own machines.
+
+## Supabase Setup
+
+Run [`database/schema.sql`](/Users/tht0021/Documents/kanban-coding-agents/database/schema.sql) in the Supabase SQL editor.
+
+If your project already has the older `agents` and `tasks` tables and you only want the incremental update, use [`database/update_control_plane.sql`](/Users/tht0021/Documents/kanban-coding-agents/database/update_control_plane.sql).
+The rollout notes and validation queries are in [`supabase.md`](/Users/tht0021/Documents/kanban-coding-agents/supabase.md).
+
+The schema now includes:
+
+- `agents`
+  - identity, transport, runtime location, Telegram label, presence, API key hash
+- `tasks`
+  - sprint plus assignment to an agent
+- `agent_messages`
+  - global, direct, and task-scoped messages
+
+## Environment Variables
+
+For local dev and Vercel:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` is required for the server API routes that authenticate external agents by `x-agent-key`.
+
+## Local Development
 
 ```bash
 npm install
-# or
-yarn install
-# or
-pnpm install
-```
-
-2. Run the development server:
-
-```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open `http://localhost:3000`.
 
-## Usage
+## Adding Your Third Agent
 
-### Adding Tasks
+In the web app:
 
-1. Click the "New Task" button in the top right
-2. Fill in the task details:
-   - **Title** (required): A brief description of the task
-   - **Description** (optional): More detailed information
-- **Priority**: Select from 1 (Low) to 5 (Critical) - shown with arrow icons on task cards
-- **Tags**: Comma-separated tags (e.g., "frontend, urgent, bug") - tags are color-coded by type
-3. Click "Add Task" to create the task
+1. Click `Add Agent`.
+2. Set the agent name, runtime location, and Telegram bot label if relevant.
+3. Copy the one-time generated key.
+4. Put that key on the VM as `AGENT_KEY`.
+5. Point the VM worker at your deployed app with `CONTROL_PLANE_URL`.
 
-### Assigning Agents
+The example worker is in [`examples/agent-control-plane.js`](/Users/tht0021/Documents/kanban-coding-agents/examples/agent-control-plane.js).
 
-1. Any task can be assigned to an agent using the dropdown selector below the task card
-2. Each agent has a colored avatar circle with their initials
-3. The assigned agent's avatar appears in the bottom-right corner of the task card
-4. To unassign an agent, click the X button next to the agent name in the assignment area
-
-### Moving Tasks
-
-- Use the "Next" and "Prev" buttons on each task card to move tasks between columns
-- Tasks flow through: TO DO → IN PROGRESS → IN REVIEW → DONE
-
-### Default Agents
-
-The application comes with five default coding agents (with colored avatars):
-- **Alex Chen**: Specializes in React, Next.js, and UI development
-- **Sarah Johnson**: Handles API, database, and server-side logic
-- **Mike Rodriguez**: Works on both frontend and backend tasks
-- **Emma Wilson**: DevOps and infrastructure specialist
-- **David Kim**: Mobile app development expert
-
-Each agent has a unique colored avatar circle that appears on assigned tasks.
-
-## Project Structure
-
-```
-kanban-coding-agents/
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx       # Root layout
-│   │   ├── page.tsx         # Main page
-│   │   └── globals.css      # Global styles
-│   ├── components/
-│   │   ├── KanbanBoard.tsx  # Main kanban board component
-│   │   ├── TaskItem.tsx     # Individual task card
-│   │   └── AgentSelector.tsx # Agent assignment dropdown
-│   ├── hooks/
-│   │   ├── useTasks.ts      # Task management hook
-│   │   └── useAgents.ts     # Agent management hook
-│   ├── lib/
-│   │   ├── storage.ts        # LocalStorage utilities
-│   │   └── utils.ts         # Utility functions
-│   └── types/
-│       ├── task.ts          # Task type definitions
-│       └── agent.ts         # Agent type definitions
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-## Technologies Used
-
-- **Next.js 16**: React framework
-- **TypeScript**: Type safety
-- **Tailwind CSS**: Styling
-- **Lucide React**: Icons
-- **LocalStorage**: Data persistence
-
-## Building for Production
+Example:
 
 ```bash
-npm run build
-npm start
+CONTROL_PLANE_URL=https://your-vercel-app.vercel.app \
+AGENT_KEY=agent_xxx \
+node examples/agent-control-plane.js
 ```
 
-## License
+## Adding An OpenClaw Agent
 
-MIT
+Use the same process for an OpenClaw worker on Desktop, Documents, or a VM:
+
+1. Open the dashboard and click `Add Agent`.
+2. Set a clear name such as `OpenClaw Desktop`, `OpenClaw Documents`, or `OpenClaw VM`.
+3. Set `Runtime location` to the host it runs on.
+4. Set the Telegram bot field to the bot username or label that OpenClaw uses.
+5. Pick `Telegram-connected worker` if that OpenClaw instance is driven by Telegram.
+6. Copy the one-time key and store it on that host as `AGENT_KEY`.
+
+Then point that OpenClaw host at the control plane:
+
+```bash
+CONTROL_PLANE_URL=https://your-vercel-app.vercel.app
+AGENT_KEY=agent_xxx
+```
+
+What the OpenClaw side needs to do:
+
+- call `GET /api/agent/bootstrap` on startup
+- call `POST /api/agent/heartbeat` periodically
+- call `GET /api/agent/tasks?includeBacklog=true` to see assigned or open work
+- call `PATCH /api/agent/tasks/:taskId` to claim or update a task
+- call `POST /api/agent/messages` to send progress or agent-to-agent notes
+
+If you want, the next step is to add a small OpenClaw adapter on each machine that maps Telegram bot activity into these control-plane endpoints.
+
+## Notes
+
+- The old README described this as a localStorage-only board. That is no longer accurate.
+- Presence is polling-based right now, not WebSocket realtime.
+- The generated agent key is shown once. Only its hash is stored.
